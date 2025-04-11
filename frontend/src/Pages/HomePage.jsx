@@ -9,7 +9,7 @@ import Search from "../components/Search";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
 
-export default function HomePage({ onLogout }) {
+export default function HomePage({ onLogout,apiBaseUrl  }) {
   const [selectedFeature, setSelectedFeature] = useState(null);
   const [isAdminBoundariesVisible, setIsAdminBoundariesVisible] =
     useState(false);
@@ -51,11 +51,16 @@ export default function HomePage({ onLogout }) {
   });
 
   const handleLogout = async () => {
-    await fetch(`${API_BASE}/api/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-    onLogout();
+    try {
+      await fetch(`${apiBaseUrl}/api/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+      onLogout();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      onLogout();
+    }
   };
 
   useEffect(() => {
@@ -105,7 +110,7 @@ export default function HomePage({ onLogout }) {
 
   return (
     <div className="app-container">
-      <Navbar onLogout={handleLogout} />
+         <Navbar onLogout={handleLogout} />
       <div className="map-container">
         <div
           className="records-container"

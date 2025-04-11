@@ -60,3 +60,77 @@ form button {
 .formuptext {
   margin-bottom: 20px;
 }
+
+.sso-container {
+  margin-top: 20px;
+}
+
+.separator {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #666;
+  margin: 15px 0;
+}
+
+.separator::before,
+.separator::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #ddd;
+}
+
+.separator::before {
+  margin-right: 10px;
+}
+
+.separator::after {
+  margin-left: 10px;
+}
+
+.sso-button {
+  width: 100%;
+  padding: 10px;
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.sso-button:hover {
+  background-color: #3367d6;
+}
+
+/* Add this to your LoginPageCss.css file */
+.separator {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.separator::before,
+.separator::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #ddd;
+}
+
+.separator span {
+  padding: 0 10px;
+  color: #757575;
+  font-size: 14px;
+}
+
+.saml-login-btn {
+  background-color: #0747a6;
+  color: white;
+}
+
+.saml-login-btn:hover {
+  background-color: #0747a6;
+  opacity: 0.9;
+}
