@@ -4,50 +4,37 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+
 import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
-
 function App() {
   const [authenticated, setAuthenticated] = useState(null);
-  const [allowed, setAllowed] = useState(true);
+
+  // Determine API base URL based on environment
+  const getApiBaseUrl = () => {
+    if (import.meta.env.VITE_API_BASE) {
+      return import.meta.env.VITE_API_BASE;
+    }
+    return window.location.hostname === 'localhost' 
+      ? 'http://localhost:5001' 
+      : 'https://polygonprojects.onrender.com';
+  };
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setAuthenticated(false);
-      return;
-    }
-    if (window.innerWidth < 1024) {
-      setAllowed(false);
-    }
+    const authCheckURL = `${getApiBaseUrl()}/api/check-auth`;
 
-    fetch(`${API_BASE}/api/check-auth`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    fetch(authCheckURL, {
+      credentials: "include",
     })
       .then((res) => res.json())
       .then((data) => setAuthenticated(data.authenticated))
-      .catch(() => setAuthenticated(false));
+      .catch((error) => {
+        console.error("Authentication check failed:", error);
+        setAuthenticated(false);
+      });
   }, []);
-  if (!allowed) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          textAlign: "center",
-        }}
-      >
-        <h2>This website is only available on desktops and laptops.</h2>
-      </div>
-    );
-  }
 
   if (authenticated === null) return <p>Loading...</p>;
 
@@ -60,7 +47,10 @@ function App() {
             authenticated ? (
               <Navigate to="/home" />
             ) : (
-              <LoginPage onLogin={() => setAuthenticated(true)} />
+              <LoginPage 
+                onLogin={() => setAuthenticated(true)} 
+                apiBaseUrl={getApiBaseUrl()}
+              />
             )
           }
         />
@@ -68,7 +58,10 @@ function App() {
           path="/home"
           element={
             authenticated ? (
-              <HomePage onLogout={() => setAuthenticated(false)} />
+              <HomePage 
+                onLogout={() => setAuthenticated(false)} 
+                apiBaseUrl={getApiBaseUrl()}
+              />
             ) : (
               <Navigate to="/" />
             )
