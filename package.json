@@ -18,5 +18,10 @@
   "bugs": {
     "url": "https://github.com/Vishnu2116/PolygonProjects/issues"
   },
-  "homepage": "https://github.com/Vishnu2116/PolygonProjects#readme"
+  "homepage": "https://github.com/Vishnu2116/PolygonProjects#readme",
+  "dependencies": {
+    "express-session": "^1.18.1",
+    "passport": "^0.7.0",
+    "passport-saml": "^3.2.4"
+  }
 }

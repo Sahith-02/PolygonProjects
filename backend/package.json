@@ -13,10 +13,20 @@
   "type": "module",
   "dependencies": {
     "@mapbox/mbtiles": "^0.12.1",
+    "@node-saml/passport-saml": "^5.0.1",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "jsonwebtoken": "^9.0.2",
-    "react-window": "^1.8.11"
+    "memorystore": "^1.6.7",
+    "passport": "^0.7.0",
+    "passport-saml": "^3.2.4",
+    "react-window": "^1.8.11",
+    "saml2-js": "^4.0.3",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
   }
 }
