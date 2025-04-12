@@ -11,15 +11,14 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 const USERS = [{ username: "admin", password: "admin1" }]; // Updated static credentials
 
+
 // SAML Configuration
 const samlConfig = {
   path: "/api/auth/saml/callback",
   entryPoint:
     "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/7b8d43fc-88fe-47c0-92b9-88df7983e913",
-  issuer:
-    process.env.NODE_ENV === "production"
-      ? "https://polygonprojects.onrender.com"
-      : "http://localhost:5001",
+  // This must match exactly what's in OneLogin Audience (EntityID)
+  issuer: "https://polygonprojects.onrender.com",
   cert:
     process.env.SAML_CERT ||
     fs.readFileSync(
@@ -30,11 +29,8 @@ const samlConfig = {
   disableRequestedAuthnContext: true,
 };
 
-// Set callback URL based on environment
-samlConfig.callbackUrl =
-  process.env.NODE_ENV === "production"
-    ? "https://polygonprojects.onrender.com/api/auth/saml/callback"
-    : "http://localhost:5001/api/auth/saml/callback";
+// This must match exactly what's in OneLogin Recipient/ACS URL
+samlConfig.callbackUrl = "https://polygonprojects.onrender.com/api/auth/saml/callback";
 
 passport.use(
   "saml",
@@ -68,11 +64,8 @@ router.post(
   passport.authenticate("saml", { failureRedirect: "/login" }),
   (req, res) => {
     req.session.user = req.user;
-    const redirectUrl =
-      process.env.NODE_ENV === "production"
-        ? "https://indgeos.onrender.com/home"
-        : "http://localhost:5173/home";
-    res.redirect(redirectUrl);
+    // Redirect to your frontend application
+    res.redirect("https://indgeos.onrender.com/home");
   }
 );
 
