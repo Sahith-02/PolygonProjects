@@ -22,7 +22,10 @@ const ToolBar = ({ activeTool, setActiveTool }) => {
         <div
           key={tool}
           className={`toolbar-item ${activeTool === tool ? "active" : ""}`}
-          onClick={() => setActiveTool(tool)}
+          onClick={() => {
+            // Toggle the tool if it's already active
+            setActiveTool(activeTool === tool ? null : tool);
+          }}
           title={tooltip}
         >
           <Icon className="toolbar-icon" />

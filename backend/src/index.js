@@ -1,9 +1,8 @@
 import express from "express";
+import session from "express-session";
 import cors from "cors";
+import passport from "passport";
 import authRoutes from "./Routes/auth.route.js";
-import tileRoutes from "./Routes/tiles.route.js";
-import path from "path";
-import MBTiles from "@mapbox/mbtiles";
 import session from "express-session";
 import {
   configureSaml,
@@ -40,16 +39,28 @@ app.use(
   })
 );
 
-app.use(express.json());
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Routes
 app.use(express.urlencoded({ extended: true })); // Needed for SAML POST callbacks
 
 // Configure SAML authentication
 configureSaml(app);
 setupSamlRoutes(app);
 
-app.use("/api", tileRoutes);
+app.get("/", (req, res) => {
+  res.send("Geospatial backend is running");
+});
 app.use("/", authRoutes);
 
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+// Error handling
+app.use((err, req, res, next) => {
+  console.error("Error:", err);
+  res.status(500).json({ error: err.message });
 });
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
