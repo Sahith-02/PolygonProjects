@@ -1,12 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "../styles/LoginPageCss.css";
 import { toast, ToastContainer } from "react-toastify";
+import { useLocation } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
+const IS_PRODUCTION = window.location.origin === "https://indgeos.onrender.com";
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const location = useLocation();
+
+  useEffect(() => {
+    // Handle token from SAML redirect
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    
+    if (token) {
+      localStorage.setItem("token", token);
+      toast.success("SAML login successful!");
+      onLogin();
+    }
+  }, [location, onLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,7 +35,7 @@ export default function LoginPage({ onLogin }) {
 
       if (res.ok) {
         const data = await res.json();
-        localStorage.setItem("token", data.token); // ✅ Store token
+        localStorage.setItem("token", data.token);
         toast.success("Login successful!");
         onLogin();
       } else {
@@ -30,6 +45,14 @@ export default function LoginPage({ onLogin }) {
       }
     } catch (err) {
       toast.error("Network error");
+    }
+  };
+
+  const handleSamlLogin = () => {
+    if (IS_PRODUCTION) {
+      window.location.href = `${API_BASE}/api/auth/saml?returnUrl=/home`;
+    } else {
+      toast.info("SAML login is only available in production");
     }
   };
 
@@ -75,6 +98,21 @@ export default function LoginPage({ onLogin }) {
           />
 
           <button type="submit">Sign In</button>
+          
+          {IS_PRODUCTION && (
+            <div className="saml-login">
+              <div className="divider">
+                <span>OR</span>
+              </div>
+              <button 
+                type="button" 
+                className="saml-button"
+                onClick={handleSamlLogin}
+              >
+                Sign in with OneLogin
+              </button>
+            </div>
+          )}
         </form>
 
         <ToastContainer />

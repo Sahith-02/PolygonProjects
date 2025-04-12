@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
 
+
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
       .then((data) => setAuthenticated(data.authenticated))
       .catch(() => setAuthenticated(false));
   }, []);
+  
   if (!allowed) {
     return (
       <div
@@ -73,6 +75,10 @@ function App() {
               <Navigate to="/" />
             )
           }
+        />
+        <Route
+          path="/saml-success"
+          element={<LoginPage onLogin={() => setAuthenticated(true)} />}
         />
       </Routes>
     </Router>
