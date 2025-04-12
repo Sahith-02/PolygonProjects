@@ -33,6 +33,7 @@ function App() {
       .then((data) => setAuthenticated(data.authenticated))
       .catch(() => setAuthenticated(false));
   }, []);
+  
   if (!allowed) {
     return (
       <div
@@ -73,6 +74,10 @@ function App() {
               <Navigate to="/" />
             )
           }
+        />
+        <Route
+          path="/saml-success"
+          element={<LoginPage onLogin={() => setAuthenticated(true)} />}
         />
       </Routes>
     </Router>

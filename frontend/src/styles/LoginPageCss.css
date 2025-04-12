@@ -60,3 +60,47 @@ form button {
 .formuptext {
   margin-bottom: 20px;
 }
+
+/* Add to your LoginPageCss.css */
+
+.saml-login {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #ccc;
+}
+
+.divider span {
+  padding: 0 10px;
+  color: #666;
+  font-size: 14px;
+}
+
+.saml-button {
+  width: 100%;
+  padding: 10px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  margin-top: 10px;
+}
+
+.saml-button:hover {
+  background-color: #2563eb;
+}
