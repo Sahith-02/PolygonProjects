@@ -69,12 +69,17 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
+      // Always allow in production to troubleshoot
+      if (process.env.NODE_ENV === "production") {
+        return callback(null, true); // Allow any origin in production temporarily
+      }
+
+      // Normal behavior for development
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) === -1) {
         return callback(null, false);
       }
-      return callback(null, origin);  // Return the specific origin, not wildcard
+      return callback(null, origin);
     },
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -96,14 +101,7 @@ app.use(
 );
 
 // Add this before defining your routes to log all responses
-app.use((req, res, next) => {
-  const originalSend = res.send;
-  res.send = function(data) {
-    console.log(`Response for ${req.path}:`, data);
-    return originalSend.call(this, data);
-  };
-  next();
-});
+
 
 // Configure Passport
 passport.use(
@@ -144,17 +142,12 @@ app.get("/", (req, res) => {
 
 // API status route
 app.get("/api/status", (req, res) => {
-  // Make sure to set the content type
-  res.setHeader("Content-Type", "application/json");
-
-  // Send a properly formatted JSON object
-  res.send(
-    JSON.stringify({
-      status: "online",
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || "development",
-    })
-  );
+  // Use res.json instead of manual JSON stringification
+  res.json({
+    status: "online",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development",
+  });
 });
 
 
@@ -175,9 +168,20 @@ app.post("/api/login", (req, res) => {
   const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "10h" });
   console.log("Login successful for:", username);
 
-  // Make sure to set content type and proper JSON
-  res.setHeader("Content-Type", "application/json");
-  res.send(JSON.stringify({ token }));
+  // Use res.json instead of manually setting Content-Type and using send
+  res.json({ token });
+});
+
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (data) {
+    console.log(
+      `Response for ${req.path}:`,
+      typeof data === "object" ? "[Object data]" : data
+    );
+    return originalJson.call(this, data);
+  };
+  next();
 });
 
 // SAML routes

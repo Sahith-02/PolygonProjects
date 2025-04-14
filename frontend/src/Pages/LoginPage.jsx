@@ -8,40 +8,75 @@ export default function LoginPage({ onLogin }) {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState(null);
-  
+
   // Get API base URL from environment or use default
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
-  
+
   // Check API status on component mount
   useEffect(() => {
+    // In LoginPage.jsx, enhance the API status check function
     const checkApiStatus = async () => {
       try {
+        console.log(`Checking API status at ${API_BASE}/api/status`);
+
         const res = await fetch(`${API_BASE}/api/status`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
-        
+
+        console.log("API status response:", res);
+
+        // Check response type
+        const contentType = res.headers.get("content-type");
+        console.log("Content-Type:", contentType);
+
         if (res.ok) {
-          const data = await res.json();
-          setApiStatus({ status: "online", data });
-          console.log("API status:", data);
+          try {
+            const data = await res.json();
+            setApiStatus({ status: "online", data });
+            console.log("API status parsed data:", data);
+          } catch (parseErr) {
+            console.error("Failed to parse API status response:", parseErr);
+
+            // Try getting the raw text to see what's being returned
+            const text = await res.text();
+            console.log("Raw response text:", text);
+
+            setApiStatus({
+              status: "error",
+              message: `API returned invalid JSON: ${parseErr.message}`,
+              rawResponse: text,
+            });
+          }
         } else {
-          setApiStatus({ status: "error", message: "API returned an error" });
-          console.error("API status check failed:", res.status);
+          try {
+            const errorText = await res.text();
+            console.log("API error response text:", errorText);
+            setApiStatus({
+              status: "error",
+              message: `API returned status ${res.status}`,
+              rawResponse: errorText,
+            });
+          } catch (e) {
+            setApiStatus({
+              status: "error",
+              message: `API returned status ${res.status}`,
+            });
+          }
         }
       } catch (err) {
-        setApiStatus({ status: "offline", error: err.message });
         console.error("API connectivity error:", err);
+        setApiStatus({ status: "offline", error: err.message });
       }
     };
-    
+
     checkApiStatus();
   }, [API_BASE]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     console.log(`Attempting login to ${API_BASE}/api/login`);
 
     try {
@@ -49,46 +84,68 @@ export default function LoginPage({ onLogin }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
-        credentials: "include"
+        credentials: "include",
       });
-      
+
       console.log("Login response status:", res.status);
-      
+      console.log(
+        "Login response headers:",
+        Object.fromEntries([...res.headers.entries()])
+      );
+
       // Always try to parse the response, even on error
       let data;
       try {
         data = await res.json();
         console.log("Login response data:", data);
       } catch (parseErr) {
-        console.error("Failed to parse response:", parseErr);
-        data = { message: "Error parsing server response" };
+        console.error("Failed to parse login response:", parseErr);
+
+        // Get the raw text to see what's being returned
+        const text = await res.text();
+        console.log("Raw login response text:", text);
+
+        toast.error(
+          `Server returned invalid JSON. Raw response: ${text.substring(
+            0,
+            100
+          )}${text.length > 100 ? "..." : ""}`
+        );
+        setIsLoading(false);
+        return;
       }
-      
+
       if (res.ok && data.token) {
         localStorage.setItem("token", data.token);
         toast.success("Login successful!");
         onLogin();
       } else {
-        toast.error(data.message || "Login failed. Please check your credentials.");
+        toast.error(
+          data.message || "Login failed. Please check your credentials."
+        );
         setPassword("");
       }
     } catch (err) {
       console.error("Login network error:", err);
-      toast.error(`Network error: ${err.message}. Please check if the server is running.`);
+      toast.error(
+        `Network error: ${err.message}. Please check if the server is running.`
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
- // In LoginPage.jsx
-const handleOneLoginAuth = () => {
-  const returnUrl = encodeURIComponent(window.location.origin + "/auth-callback");
-  // Make sure API_BASE includes the protocol (https://)
-  const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
-  
-  console.log("Redirecting to OneLogin SSO:", samlUrl);
-  window.location.href = samlUrl;
-};
+  // In LoginPage.jsx
+  const handleOneLoginAuth = () => {
+    const returnUrl = encodeURIComponent(
+      window.location.origin + "/auth-callback"
+    );
+    // Make sure API_BASE includes the protocol (https://)
+    const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
+
+    console.log("Redirecting to OneLogin SSO:", samlUrl);
+    window.location.href = samlUrl;
+  };
 
   return (
     <div className="container">
@@ -99,14 +156,16 @@ const handleOneLoginAuth = () => {
         <div className="title">
           <h1>Parcel Information Project</h1>
           {apiStatus && apiStatus.status !== "online" && (
-            <div style={{ 
-              color: "red", 
-              backgroundColor: "#ffeeee", 
-              padding: "10px", 
-              borderRadius: "4px",
-              marginTop: "10px"
-            }}>
-              API Status: {apiStatus.status} 
+            <div
+              style={{
+                color: "red",
+                backgroundColor: "#ffeeee",
+                padding: "10px",
+                borderRadius: "4px",
+                marginTop: "10px",
+              }}
+            >
+              API Status: {apiStatus.status}
               {apiStatus.error && <p>Error: {apiStatus.error}</p>}
             </div>
           )}
@@ -151,11 +210,11 @@ const handleOneLoginAuth = () => {
           <button type="submit" disabled={isLoading}>
             {isLoading ? "Signing In..." : "Sign In"}
           </button>
-          
+
           <div style={{ margin: "20px 0", textAlign: "center" }}>
             <p style={{ marginBottom: "10px" }}>Or sign in with</p>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={handleOneLoginAuth}
               disabled={isLoading}
               style={{
@@ -166,7 +225,7 @@ const handleOneLoginAuth = () => {
                 border: "none",
                 borderRadius: "4px",
                 cursor: "pointer",
-                opacity: isLoading ? 0.7 : 1
+                opacity: isLoading ? 0.7 : 1,
               }}
             >
               OneLogin SSO
