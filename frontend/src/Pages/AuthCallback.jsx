@@ -1,15 +1,14 @@
 import React, { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
-function AuthCallback() {
+export default function AuthCallback() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const token = params.get('token');
-    const error = params.get('error');
+    const token = searchParams.get('token');
+    const error = searchParams.get('error');
 
     if (error) {
       toast.error(`SSO Failed: ${error}`);
@@ -19,24 +18,23 @@ function AuthCallback() {
 
     if (token) {
       localStorage.setItem('token', token);
-      toast.success('Login successful via SSO');
+      toast.success('SSO Login Successful');
       navigate('/home');
     } else {
-      toast.error('No authentication token received');
+      // Check for SAML errors in URL
+      const samlError = window.location.href.includes('SAMLResponse') 
+        ? 'Invalid SAML response from provider'
+        : 'Missing authentication token';
+      
+      toast.error(samlError);
       navigate('/login');
     }
-  }, [navigate, location]);
+  }, [navigate, searchParams]);
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh'
-    }}>
-      <h2>Processing SSO authentication...</h2>
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <h2>Processing SSO Authentication...</h2>
+      <p>Please wait while we verify your credentials</p>
     </div>
   );
 }
-
-export default AuthCallback;

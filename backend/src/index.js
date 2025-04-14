@@ -1,23 +1,27 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import path from "path";
-import { fileURLToPath } from "url";
 import passport from "passport";
 import { Strategy as SamlStrategy } from "passport-saml";
 import jwt from "jsonwebtoken";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = process.env.PORT || 5001;
 
-// Environment variables
-const {
-  JWT_SECRET = "your-strong-secret-here",
-  SAML_CALLBACK_URL = "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
-  SAML_ENTRY_POINT = "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-98272",
-  SAML_ISSUER = "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
-  SAML_CERT = `-----BEGIN CERTIFICATE-----
+const PORT = process.env.PORT || 5001;
+// Environment Configuration - MUST match exactly with OneLogin
+const config = {
+  JWT_SECRET: process.env.JWT_SECRET || "PolygonGeospatiala10",
+  SAML: {
+    callbackUrl:
+      process.env.SAML_CALLBACK_URL ||
+      "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
+    entryPoint:
+      process.env.SAML_ENTRY_POINT ||
+      "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-98272",
+    issuer:
+      process.env.SAML_ISSUER ||
+      "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
+    cert: `-----BEGIN CERTIFICATE-----
 MIID6DCCAtCgAwIBAgIUCptxODq6booyevMhXoQw0YXgQvkwDQYJKoZIhvcNAQEF
 BQAwSTEUMBIGA1UECgwLdm5ydmppZXQuaW4xFTATBgNVBAsMDE9uZUxvZ2luIElk
 UDEaMBgGA1UEAwwRT25lTG9naW4gQWNjb3VudCAwHhcNMjUwNDExMDYzMTQ3WhcN
@@ -40,8 +44,9 @@ irFYhqJUa7/tyFKv4BAXfnz94eqYBTYiRLjPX/OoEl1O0OeZ8W8DbgTuQtOlEd1a
 ejA9oXNr6cB+nqMq4G9UDPWbKuerMEITAL0SoxkKLNgq/MuGsxOIrmP3dB0g1oWq
 BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 -----END CERTIFICATE-----`,
-  SESSION_SECRET = "your-session-secret",
-} = process.env;
+    audience: "https://geospatial-ap-backend.onrender.com",
+  },
+};
 
 // Users for local auth
 const USERS = [{ username: "admin", password: "admin1" }];
@@ -67,7 +72,7 @@ app.use(
 // Setup session
 app.use(
   session({
-    secret: SESSION_SECRET,
+    secret: "PolygonGeospatial@100",
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -83,28 +88,25 @@ app.use(
 passport.use(
   new SamlStrategy(
     {
-      callbackUrl: SAML_CALLBACK_URL,
-      entryPoint: SAML_ENTRY_POINT,
-      issuer:
-        "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
-      cert: SAML_CERT,
+      path: "/api/auth/saml/callback",
+      entryPoint: config.SAML.entryPoint,
+      issuer: config.SAML.issuer,
+      cert: config.SAML.cert,
+      audience: config.SAML.audience,
       signatureAlgorithm: "sha1",
-      disableRequestedAuthnContext: true,
-      identifierFormat:
-      "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
-      acceptedClockSkewMs: 30000,
+      acceptedClockSkewMs: 60000,
+      wantAssertionsSigned: true,
       authnRequestBinding: "HTTP-POST",
+      disableRequestedAuthnContext: true,
     },
     (profile, done) => {
-      try {
-        return done(null, {
-          id: profile.nameID,
-          email: profile.nameID,
-          displayName: profile.nameID,
-        });
-      } catch (err) {
-        return done(err);
+      if (!profile.nameID) {
+        return done(new Error("No nameID in SAML response"));
       }
+      return done(null, {
+        id: profile.nameID,
+        email: profile.nameID,
+      });
     }
   )
 );
@@ -155,12 +157,6 @@ app.get("/api/status", (req, res) => {
 // SAML routes
 app.get(
   "/api/auth/saml",
-  (req, res, next) => {
-    if (req.query.returnTo) {
-      req.session.returnTo = req.query.returnTo;
-    }
-    next();
-  },
   passport.authenticate("saml", {
     failureRedirect: "/login",
     failureFlash: true,
@@ -174,25 +170,18 @@ app.post(
     failureFlash: true,
   }),
   (req, res) => {
-    try {
-      const token = jwt.sign(
-        {
-          id: req.user.id,
-          email: req.user.email,
-        },
-        JWT_SECRET,
-        { expiresIn: "1h" }
-      );
+    const token = jwt.sign(
+      {
+        id: req.user.id,
+        email: req.user.email,
+      },
+      config.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
 
-      const redirectUrl =
-        req.session.returnTo ||
-        "https://geospatial-ap-frontend.onrender.com/auth-callback";
-
-      res.redirect(`${redirectUrl}?token=${token}`);
-    } catch (err) {
-      console.error("SAML callback error:", err);
-      res.redirect("/login?error=saml_failed");
-    }
+    res.redirect(
+      `https://geospatial-ap-frontend.onrender.com/auth-callback?token=${token}`
+    );
   }
 );
 
@@ -240,10 +229,10 @@ app.use((req, res, next) => {
 
 // Add this at the end of your middleware setup
 app.use((err, req, res, next) => {
-  console.error("Server error:", err);
-  res.status(500).json({
-    message: "Server error occurred",
-    error: process.env.NODE_ENV === "production" ? null : err.message,
+  console.error("SAML Error:", err);
+  res.status(400).json({
+    error: "SAML Authentication Failed",
+    details: process.env.NODE_ENV === "production" ? null : err.message,
   });
 });
 // Start the server
@@ -251,9 +240,9 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`SAML Config:`);
-  console.log(`- Issuer: ${SAML_ISSUER}`);
-  console.log(`- Callback: ${SAML_CALLBACK_URL}`);
-  console.log(`- Entry Point: ${SAML_ENTRY_POINT}`);
+  console.log(`- Issuer: ${process.env.SAML_ISSUER}`);
+  console.log(`- Callback: ${process.env.SAML_CALLBACK_URL}`);
+  console.log(`- Entry Point: ${process.env.SAML_ENTRY_POINT}`);
 });
 
 export default app;
