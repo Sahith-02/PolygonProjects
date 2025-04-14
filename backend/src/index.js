@@ -66,21 +66,10 @@ const allowedOrigins = [
 ];
 
 
+// In index.js, update your CORS configuration
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Always allow in production to troubleshoot
-      if (process.env.NODE_ENV === "production") {
-        return callback(null, true); // Allow any origin in production temporarily
-      }
-
-      // Normal behavior for development
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        return callback(null, false);
-      }
-      return callback(null, origin);
-    },
+    origin: true, // Allow all origins temporarily for debugging
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -140,13 +129,11 @@ app.get("/", (req, res) => {
   res.send("Geospatial AP API is running");
 });
 
-// API status route
 app.get("/api/status", (req, res) => {
-  // Use res.json instead of manual JSON stringification
-  res.json({
+  // As simple as possible
+  res.status(200).json({
     status: "online",
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
   });
 });
 
@@ -254,16 +241,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add this at the end of your middleware setup
 app.use((err, req, res, next) => {
-  console.error("Server error:", err.stack);
+  console.error("Server error:", err);
   res.status(500).json({
     message: "Server error occurred",
-    error: process.env.NODE_ENV === "production" ? null : err.message
+    error: process.env.NODE_ENV === 'production' ? null : err.message
   });
 });
 // Start the server
+// At the end of index.js
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+}).on('error', (err) => {
+  console.error('Server failed to start:', err);
 });
 
 export default app;

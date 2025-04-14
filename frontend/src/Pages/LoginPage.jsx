@@ -16,42 +16,39 @@ export default function LoginPage({ onLogin }) {
   useEffect(() => {
     const checkApiStatus = async () => {
       try {
-        console.log(`Checking API status at ${API_BASE}/api/status`);
+        // Add timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        const url = `${API_BASE}/api/status?t=${timestamp}`;
+        console.log(`Checking API status at ${url}`);
         
-        const res = await fetch(`${API_BASE}/api/status`, {
+        // Set longer timeout for fetch
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const res = await fetch(url, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal
         });
         
-        console.log("API status response:", res.status);
+        clearTimeout(timeoutId);
+        console.log("API status response code:", res.status);
         
         if (res.ok) {
-          try {
-            // Only read the response once
-            const text = await res.text();
-            console.log("API status raw response:", text);
-            
-            // Try to parse it as JSON
-            try {
-              const data = JSON.parse(text);
-              setApiStatus({ status: "online", data });
-            } catch (jsonErr) {
-              setApiStatus({ 
-                status: "error", 
-                message: `API returned invalid JSON: ${jsonErr.message}`,
-                rawResponse: text
-              });
-            }
-          } catch (readErr) {
-            console.error("Failed to read API status response:", readErr);
-            setApiStatus({ status: "error", message: `Failed to read response: ${readErr.message}` });
-          }
+          // Just set as online if we got any successful response
+          setApiStatus({ status: "online" });
         } else {
-          setApiStatus({ status: "error", message: `API returned status ${res.status}` });
+          setApiStatus({ 
+            status: "error", 
+            message: `API returned status ${res.status}`
+          });
         }
       } catch (err) {
         console.error("API connectivity error:", err);
-        setApiStatus({ status: "offline", error: err.message });
+        setApiStatus({ 
+          status: "offline", 
+          error: err.name === 'AbortError' ? 'Request timed out' : err.message 
+        });
       }
     };
 
