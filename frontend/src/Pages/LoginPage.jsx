@@ -20,34 +20,34 @@ export default function LoginPage({ onLogin }) {
         const timestamp = new Date().getTime();
         const url = `${API_BASE}/api/status?t=${timestamp}`;
         console.log(`Checking API status at ${url}`);
-        
+
         // Set longer timeout for fetch
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
+
         const res = await fetch(url, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
-          signal: controller.signal
+          signal: controller.signal,
         });
-        
+
         clearTimeout(timeoutId);
         console.log("API status response code:", res.status);
-        
+
         if (res.ok) {
           // Just set as online if we got any successful response
           setApiStatus({ status: "online" });
         } else {
-          setApiStatus({ 
-            status: "error", 
-            message: `API returned status ${res.status}`
+          setApiStatus({
+            status: "error",
+            message: `API returned status ${res.status}`,
           });
         }
       } catch (err) {
         console.error("API connectivity error:", err);
-        setApiStatus({ 
-          status: "offline", 
-          error: err.name === 'AbortError' ? 'Request timed out' : err.message 
+        setApiStatus({
+          status: "offline",
+          error: err.name === "AbortError" ? "Request timed out" : err.message,
         });
       }
     };
@@ -58,23 +58,28 @@ export default function LoginPage({ onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     console.log(`Attempting login to ${API_BASE}/api/login`);
-  
+
     try {
+      // In LoginPage.jsx, update the fetch call to:
       const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // Add this to prevent any unwanted redirects
+          "X-Requested-With": "XMLHttpRequest",
+        },
         body: JSON.stringify({ username, password }),
-        credentials: "include"
+        credentials: "include",
       });
-      
+
       console.log("Login response status:", res.status);
-      
+
       // Read the response only once as text
       const text = await res.text();
       console.log("Raw login response:", text);
-      
+
       // Then try to parse it
       let data;
       try {
@@ -82,22 +87,31 @@ export default function LoginPage({ onLogin }) {
         console.log("Login parsed data:", data);
       } catch (parseErr) {
         console.error("Failed to parse login response:", parseErr);
-        toast.error(`Server returned invalid JSON. Raw response: ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`);
+        toast.error(
+          `Server returned invalid JSON. Raw response: ${text.substring(
+            0,
+            100
+          )}${text.length > 100 ? "..." : ""}`
+        );
         setIsLoading(false);
         return;
       }
-      
+
       if (res.ok && data.token) {
         localStorage.setItem("token", data.token);
         toast.success("Login successful!");
         onLogin();
       } else {
-        toast.error(data.message || "Login failed. Please check your credentials.");
+        toast.error(
+          data.message || "Login failed. Please check your credentials."
+        );
         setPassword("");
       }
     } catch (err) {
       console.error("Login network error:", err);
-      toast.error(`Network error: ${err.message}. Please check if the server is running.`);
+      toast.error(
+        `Network error: ${err.message}. Please check if the server is running.`
+      );
     } finally {
       setIsLoading(false);
     }
