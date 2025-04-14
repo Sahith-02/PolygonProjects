@@ -16,7 +16,7 @@ const {
   JWT_SECRET = "your-strong-secret-here",
   SAML_CALLBACK_URL = "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
   SAML_ENTRY_POINT = "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-98272",
-  SAML_ISSUER = "https://geospatial-ap-backend.onrender.com",
+  SAML_ISSUER = "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
   SAML_CERT = `-----BEGIN CERTIFICATE-----
 MIID6DCCAtCgAwIBAgIUCptxODq6booyevMhXoQw0YXgQvkwDQYJKoZIhvcNAQEF
 BQAwSTEUMBIGA1UECgwLdm5ydmppZXQuaW4xFTATBgNVBAsMDE9uZUxvZ2luIElk
@@ -85,10 +85,15 @@ passport.use(
     {
       callbackUrl: SAML_CALLBACK_URL,
       entryPoint: SAML_ENTRY_POINT,
-      issuer: SAML_ISSUER,
+      issuer:
+        "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
       cert: SAML_CERT,
       signatureAlgorithm: "sha1",
       disableRequestedAuthnContext: true,
+      identifierFormat:
+      "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+      acceptedClockSkewMs: 30000,
+      authnRequestBinding: "HTTP-POST",
     },
     (profile, done) => {
       try {
