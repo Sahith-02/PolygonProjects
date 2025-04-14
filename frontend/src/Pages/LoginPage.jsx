@@ -80,14 +80,15 @@ export default function LoginPage({ onLogin }) {
     }
   };
 
-  const handleOneLoginAuth = () => {
-    const returnUrl = encodeURIComponent(window.location.origin + "/auth-callback");
-    // Change this line to use the correct API base
-    const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
-    
-    console.log("Redirecting to OneLogin SSO:", samlUrl);
-    window.location.href = samlUrl;
-  };
+ // In LoginPage.jsx
+const handleOneLoginAuth = () => {
+  const returnUrl = encodeURIComponent(window.location.origin + "/auth-callback");
+  // Make sure API_BASE includes the protocol (https://)
+  const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
+  
+  console.log("Redirecting to OneLogin SSO:", samlUrl);
+  window.location.href = samlUrl;
+};
 
   return (
     <div className="container">

@@ -25,6 +25,15 @@ const SAML_ISSUER =
 // Users for local auth
 const USERS = [{ username: "admin", password: "admin1" }];
 
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log("Headers:", req.headers);
+  if (req.body && Object.keys(req.body).length) {
+    console.log("Body:", req.body);
+  }
+  next();
+});
+
 // SAML Certificate
 const SAML_CERT = `-----BEGIN CERTIFICATE-----
 MIID6DCCAtCgAwIBAgIUCptxODq6booyevMhXoQw0YXgQvkwDQYJKoZIhvcNAQEF
@@ -56,15 +65,16 @@ const allowedOrigins = [
   "http://localhost:5173",
 ];
 
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin
+      // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) === -1) {
-        return callback(null, true); // Allow all origins for now to debug
+        return callback(null, false);
       }
-      return callback(null, true);
+      return callback(null, origin);  // Return the specific origin, not wildcard
     },
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -84,6 +94,16 @@ app.use(
     },
   })
 );
+
+// Add this before defining your routes to log all responses
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function(data) {
+    console.log(`Response for ${req.path}:`, data);
+    return originalSend.call(this, data);
+  };
+  next();
+});
 
 // Configure Passport
 passport.use(
@@ -124,12 +144,19 @@ app.get("/", (req, res) => {
 
 // API status route
 app.get("/api/status", (req, res) => {
-  res.json({
-    status: "online",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
-  });
+  // Make sure to set the content type
+  res.setHeader("Content-Type", "application/json");
+
+  // Send a properly formatted JSON object
+  res.send(
+    JSON.stringify({
+      status: "online",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
+    })
+  );
 });
+
 
 // Login route
 app.post("/api/login", (req, res) => {
@@ -147,7 +174,10 @@ app.post("/api/login", (req, res) => {
 
   const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "10h" });
   console.log("Login successful for:", username);
-  res.json({ token });
+
+  // Make sure to set content type and proper JSON
+  res.setHeader("Content-Type", "application/json");
+  res.send(JSON.stringify({ token }));
 });
 
 // SAML routes
@@ -225,15 +255,14 @@ app.post("/api/logout", (req, res) => {
   }
 });
 
-// Error handler
+
 app.use((err, req, res, next) => {
   console.error("Server error:", err.stack);
   res.status(500).json({
     message: "Server error occurred",
-    error: process.env.NODE_ENV === "production" ? null : err.message,
+    error: process.env.NODE_ENV === "production" ? null : err.message
   });
 });
-
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
