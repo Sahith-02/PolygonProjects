@@ -46,16 +46,14 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 // Fallback for local development
 const USERS = [{ username: "admin", password: "admin1" }];
 
-// Check if we're in production
-const isProduction = process.env.NODE_ENV === "production";
-
-// Only set up SAML in production
-if (isProduction) {
-  // Configure SAML Strategy
-  const samlStrategy = new SamlStrategy(
+// Configure Passport SAML Strategy - Always setup regardless of environment
+passport.use(
+  new SamlStrategy(
     {
       callbackUrl: SAML_CALLBACK_URL,
-      entryPoint: SAML_ENTRY_POINT,
+      entryPoint:
+        SAML_ENTRY_POINT ||
+        "https://vnrvjiet-dev.onelogin.com/trust/saml2/http-post/sso/", // Fallback for dev
       issuer: SAML_ISSUER,
       cert: SAML_CERT,
       disableRequestedAuthnContext: true,
@@ -68,25 +66,23 @@ if (isProduction) {
         displayName: profile.nameID,
       });
     }
-  );
+  )
+);
 
-  passport.use(samlStrategy);
+// Passport session setup
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
 
-  // Passport session setup
-  passport.serializeUser((user, done) => {
-    done(null, user);
-  });
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
 
-  passport.deserializeUser((user, done) => {
-    done(null, user);
-  });
+router.use(passport.initialize());
+router.use(passport.session());
 
-  router.use(passport.initialize());
-  router.use(passport.session());
-}
-
-// Maintain existing login endpoint for backward compatibility
-router.post("/api/login", (req, res) => {
+// Login endpoint for username/password auth
+router.post("/login", (req, res) => {
   const { username, password } = req.body;
 
   const user = USERS.find(
@@ -100,55 +96,52 @@ router.post("/api/login", (req, res) => {
   res.json({ token });
 });
 
-// Only add SAML routes in production
-if (isProduction) {
-  // SAML authentication initiation endpoint
-  router.get(
-    "/api/auth/saml",
-    (req, res, next) => {
-      if (req.query.returnTo) {
-        req.session.returnTo = req.query.returnTo;
-      }
-      next();
-    },
-    passport.authenticate("saml", {
-      failureRedirect: "/",
-      failureFlash: true,
-    })
-  );
-
-  // SAML callback endpoint
-  router.post(
-    "/api/auth/saml/callback",
-    passport.authenticate("saml", {
-      failureRedirect: "/",
-      failureFlash: true,
-    }),
-    (req, res) => {
-      // Generate JWT token from SAML profile
-      const token = jwt.sign(
-        {
-          id: req.user.id,
-          email: req.user.email,
-          name: req.user.displayName,
-        },
-        JWT_SECRET,
-        { expiresIn: "10h" }
-      );
-
-      // Redirect to frontend with token
-      const redirectUrl =
-        req.session.returnTo ||
-        "https://geospatial-ap-frontend.onrender.com/auth-callback";
-      delete req.session.returnTo;
-
-      res.redirect(`${redirectUrl}?token=${token}`);
+// SAML authentication initiation endpoint
+router.get(
+  "/auth/saml",
+  (req, res, next) => {
+    if (req.query.returnTo) {
+      req.session.returnTo = req.query.returnTo;
     }
-  );
-}
+    next();
+  },
+  passport.authenticate("saml", {
+    failureRedirect: "/",
+    failureFlash: true,
+  })
+);
+
+// SAML callback endpoint
+router.post(
+  "/auth/saml/callback",
+  passport.authenticate("saml", {
+    failureRedirect: "/",
+    failureFlash: true,
+  }),
+  (req, res) => {
+    // Generate JWT token from SAML profile
+    const token = jwt.sign(
+      {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.displayName,
+      },
+      JWT_SECRET,
+      { expiresIn: "10h" }
+    );
+
+    // Redirect to frontend with token
+    const redirectUrl =
+      req.session.returnTo ||
+      "https://geospatial-ap-frontend.onrender.com/auth-callback";
+    delete req.session.returnTo;
+
+    res.redirect(`${redirectUrl}?token=${token}`);
+  }
+);
 
 // Check auth endpoint (supports both JWT and session)
-router.get("/api/check-auth", (req, res) => {
+router.get("/check-auth", (req, res) => {
   // Check for JWT token
   const authHeader = req.headers.authorization;
 
@@ -159,13 +152,13 @@ router.get("/api/check-auth", (req, res) => {
       const decoded = jwt.verify(token, JWT_SECRET);
       return res.json({ authenticated: true, user: decoded });
     } catch (err) {
-      // JWT failed, check session if in production
-      if (isProduction && req.isAuthenticated && req.isAuthenticated()) {
+      // JWT failed, check session
+      if (req.isAuthenticated && req.isAuthenticated()) {
         return res.json({ authenticated: true, user: req.user });
       }
     }
-  } else if (isProduction && req.isAuthenticated && req.isAuthenticated()) {
-    // Check for passport session if in production
+  } else if (req.isAuthenticated && req.isAuthenticated()) {
+    // Check for passport session
     return res.json({ authenticated: true, user: req.user });
   }
 
@@ -174,11 +167,17 @@ router.get("/api/check-auth", (req, res) => {
 });
 
 // Logout endpoint
-router.post("/api/logout", (req, res) => {
-  if (isProduction && req.logout) {
-    req.logout();
+router.post("/logout", (req, res) => {
+  if (req.logout) {
+    req.logout(function (err) {
+      if (err) {
+        return next(err);
+      }
+      res.json({ success: true });
+    });
+  } else {
+    res.json({ success: true });
   }
-  res.json({ success: true });
 });
 
 export default router;
