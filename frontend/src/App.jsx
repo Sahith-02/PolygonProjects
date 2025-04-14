@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
+import AuthCallback from "./Pages/AuthCallback"; // Import the new component
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
 
@@ -33,6 +34,7 @@ function App() {
       .then((data) => setAuthenticated(data.authenticated))
       .catch(() => setAuthenticated(false));
   }, []);
+  
   if (!allowed) {
     return (
       <div
@@ -74,6 +76,8 @@ function App() {
             )
           }
         />
+        {/* Add the new route for SAML callback */}
+        <Route path="/auth-callback" element={<AuthCallback />} />
       </Routes>
     </Router>
   );

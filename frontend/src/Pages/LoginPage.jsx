@@ -20,7 +20,7 @@ export default function LoginPage({ onLogin }) {
 
       if (res.ok) {
         const data = await res.json();
-        localStorage.setItem("token", data.token); // ✅ Store token
+        localStorage.setItem("token", data.token);
         toast.success("Login successful!");
         onLogin();
       } else {
@@ -31,6 +31,12 @@ export default function LoginPage({ onLogin }) {
     } catch (err) {
       toast.error("Network error");
     }
+  };
+
+  const handleOneLoginAuth = () => {
+    // Redirect to the SAML authentication endpoint
+    const returnUrl = encodeURIComponent(window.location.origin + "/auth-callback");
+    window.location.href = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
   };
 
   return (
@@ -75,6 +81,25 @@ export default function LoginPage({ onLogin }) {
           />
 
           <button type="submit">Sign In</button>
+          
+          <div style={{ margin: "20px 0", textAlign: "center" }}>
+            <p style={{ marginBottom: "10px" }}>Or sign in with</p>
+            <button 
+              type="button" 
+              onClick={handleOneLoginAuth}
+              style={{
+                backgroundColor: "#1565C0",
+                color: "white",
+                width: "100%",
+                padding: "10px",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer"
+              }}
+            >
+              OneLogin SSO
+            </button>
+          </div>
         </form>
 
         <ToastContainer />
