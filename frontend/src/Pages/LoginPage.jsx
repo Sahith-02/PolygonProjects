@@ -14,55 +14,40 @@ export default function LoginPage({ onLogin }) {
 
   // Check API status on component mount
   useEffect(() => {
-    // In LoginPage.jsx, enhance the API status check function
     const checkApiStatus = async () => {
       try {
         console.log(`Checking API status at ${API_BASE}/api/status`);
-
+        
         const res = await fetch(`${API_BASE}/api/status`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
-
-        console.log("API status response:", res);
-
-        // Check response type
-        const contentType = res.headers.get("content-type");
-        console.log("Content-Type:", contentType);
-
+        
+        console.log("API status response:", res.status);
+        
         if (res.ok) {
           try {
-            const data = await res.json();
-            setApiStatus({ status: "online", data });
-            console.log("API status parsed data:", data);
-          } catch (parseErr) {
-            console.error("Failed to parse API status response:", parseErr);
-
-            // Try getting the raw text to see what's being returned
+            // Only read the response once
             const text = await res.text();
-            console.log("Raw response text:", text);
-
-            setApiStatus({
-              status: "error",
-              message: `API returned invalid JSON: ${parseErr.message}`,
-              rawResponse: text,
-            });
+            console.log("API status raw response:", text);
+            
+            // Try to parse it as JSON
+            try {
+              const data = JSON.parse(text);
+              setApiStatus({ status: "online", data });
+            } catch (jsonErr) {
+              setApiStatus({ 
+                status: "error", 
+                message: `API returned invalid JSON: ${jsonErr.message}`,
+                rawResponse: text
+              });
+            }
+          } catch (readErr) {
+            console.error("Failed to read API status response:", readErr);
+            setApiStatus({ status: "error", message: `Failed to read response: ${readErr.message}` });
           }
         } else {
-          try {
-            const errorText = await res.text();
-            console.log("API error response text:", errorText);
-            setApiStatus({
-              status: "error",
-              message: `API returned status ${res.status}`,
-              rawResponse: errorText,
-            });
-          } catch (e) {
-            setApiStatus({
-              status: "error",
-              message: `API returned status ${res.status}`,
-            });
-          }
+          setApiStatus({ status: "error", message: `API returned status ${res.status}` });
         }
       } catch (err) {
         console.error("API connectivity error:", err);
@@ -76,60 +61,46 @@ export default function LoginPage({ onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
+    
     console.log(`Attempting login to ${API_BASE}/api/login`);
-
+  
     try {
       const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
-        credentials: "include",
+        credentials: "include"
       });
-
+      
       console.log("Login response status:", res.status);
-      console.log(
-        "Login response headers:",
-        Object.fromEntries([...res.headers.entries()])
-      );
-
-      // Always try to parse the response, even on error
+      
+      // Read the response only once as text
+      const text = await res.text();
+      console.log("Raw login response:", text);
+      
+      // Then try to parse it
       let data;
       try {
-        data = await res.json();
-        console.log("Login response data:", data);
+        data = JSON.parse(text);
+        console.log("Login parsed data:", data);
       } catch (parseErr) {
         console.error("Failed to parse login response:", parseErr);
-
-        // Get the raw text to see what's being returned
-        const text = await res.text();
-        console.log("Raw login response text:", text);
-
-        toast.error(
-          `Server returned invalid JSON. Raw response: ${text.substring(
-            0,
-            100
-          )}${text.length > 100 ? "..." : ""}`
-        );
+        toast.error(`Server returned invalid JSON. Raw response: ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`);
         setIsLoading(false);
         return;
       }
-
+      
       if (res.ok && data.token) {
         localStorage.setItem("token", data.token);
         toast.success("Login successful!");
         onLogin();
       } else {
-        toast.error(
-          data.message || "Login failed. Please check your credentials."
-        );
+        toast.error(data.message || "Login failed. Please check your credentials.");
         setPassword("");
       }
     } catch (err) {
       console.error("Login network error:", err);
-      toast.error(
-        `Network error: ${err.message}. Please check if the server is running.`
-      );
+      toast.error(`Network error: ${err.message}. Please check if the server is running.`);
     } finally {
       setIsLoading(false);
     }

@@ -172,17 +172,7 @@ app.post("/api/login", (req, res) => {
   res.json({ token });
 });
 
-app.use((req, res, next) => {
-  const originalJson = res.json;
-  res.json = function (data) {
-    console.log(
-      `Response for ${req.path}:`,
-      typeof data === "object" ? "[Object data]" : data
-    );
-    return originalJson.call(this, data);
-  };
-  next();
-});
+
 
 // SAML routes
 app.get(
@@ -259,6 +249,10 @@ app.post("/api/logout", (req, res) => {
   }
 });
 
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
 app.use((err, req, res, next) => {
   console.error("Server error:", err.stack);
