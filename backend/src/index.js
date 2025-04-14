@@ -22,19 +22,7 @@ const SAML_ENTRY_POINT =
 const SAML_ISSUER =
   process.env.SAML_ISSUER || "https://geospatial-ap-backend.onrender.com";
 
-// Users for local auth
-const USERS = [{ username: "admin", password: "admin1" }];
-
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log("Headers:", req.headers);
-  if (req.body && Object.keys(req.body).length) {
-    console.log("Body:", req.body);
-  }
-  next();
-});
-
-// SAML Certificate
+// SAML Certificate - Add this before the passport configuration
 const SAML_CERT = `-----BEGIN CERTIFICATE-----
 MIID6DCCAtCgAwIBAgIUCptxODq6booyevMhXoQw0YXgQvkwDQYJKoZIhvcNAQEF
 BQAwSTEUMBIGA1UECgwLdm5ydmppZXQuaW4xFTATBgNVBAsMDE9uZUxvZ2luIElk
@@ -59,20 +47,27 @@ ejA9oXNr6cB+nqMq4G9UDPWbKuerMEITAL0SoxkKLNgq/MuGsxOIrmP3dB0g1oWq
 BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 -----END CERTIFICATE-----`;
 
+// Users for local auth
+const USERS = [{ username: "admin", password: "admin1" }];
+
 // Configure CORS
 const allowedOrigins = [
   "https://geospatial-ap-frontend.onrender.com",
   "http://localhost:5173",
 ];
 
-
-// In index.js, update your CORS configuration
 app.use(
   cors({
-    origin: true, // Allow all origins temporarily for debugging
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
   })
 );
 
@@ -83,23 +78,20 @@ app.use(
     resave: false,
     saveUninitialized: true,
     cookie: {
-      secure: false, // Set to false to debug
+      secure: false, // Set to true in production with HTTPS
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
 );
 
-// Add this before defining your routes to log all responses
-
-
-// Configure Passport
+// Configure Passport SAML
 passport.use(
   new SamlStrategy(
     {
       callbackUrl: SAML_CALLBACK_URL,
       entryPoint: SAML_ENTRY_POINT,
       issuer: SAML_ISSUER,
-      cert: SAML_CERT,
+      cert: SAML_CERT, // Now this will work
       disableRequestedAuthnContext: true,
     },
     (profile, done) => {
@@ -124,42 +116,36 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(express.json());
 
-// Root route - should always work
-app.get("/", (req, res) => {
-  res.send("Geospatial AP API is running");
-});
+// Enable pre-flight for all routes
+app.options("*", cors());
 
-app.get("/api/status", (req, res) => {
-  // As simple as possible
-  res.status(200).json({
-    status: "online",
-    timestamp: new Date().toISOString(),
-  });
-});
-
-
-// Login route
+// Login route - updated with proper headers
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
-  console.log("Login attempt:", username);
 
   const user = USERS.find(
     (u) => u.username === username && u.password === password
   );
 
   if (!user) {
-    console.log("Login failed: Invalid credentials");
     return res.status(401).json({ message: "Invalid credentials" });
   }
 
   const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "10h" });
-  console.log("Login successful for:", username);
 
-  // Use res.json instead of manually setting Content-Type and using send
+  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   res.json({ token });
 });
 
-
+// Add this with your other routes in index.js
+app.get("/api/status", (req, res) => {
+  res.status(200).json({
+    status: "online",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development"
+  });
+});
 
 // SAML routes
 app.get(
@@ -246,15 +232,17 @@ app.use((err, req, res, next) => {
   console.error("Server error:", err);
   res.status(500).json({
     message: "Server error occurred",
-    error: process.env.NODE_ENV === 'production' ? null : err.message
+    error: process.env.NODE_ENV === "production" ? null : err.message,
   });
 });
 // Start the server
 // At the end of index.js
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-}).on('error', (err) => {
-  console.error('Server failed to start:', err);
-});
+app
+  .listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  })
+  .on("error", (err) => {
+    console.error("Server failed to start:", err);
+  });
 
 export default app;
