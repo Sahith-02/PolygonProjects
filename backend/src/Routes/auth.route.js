@@ -13,10 +13,10 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret";
 const SAML_CALLBACK_URL =
   process.env.SAML_CALLBACK_URL ||
-  "https://polygonprojects.onrender.com/api/auth/saml/callback";
+  "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback";
 const SAML_ENTRY_POINT = process.env.SAML_ENTRY_POINT; // OneLogin SAML 2.0 Endpoint
 const SAML_ISSUER =
-  process.env.SAML_ISSUER || "https://polygonprojects.onrender.com";
+  process.env.SAML_ISSUER || "https://geospatial-ap-backend.onrender.com";
 
 // The certificate you provided
 const SAML_CERT = `-----BEGIN CERTIFICATE-----
@@ -138,7 +138,8 @@ if (isProduction) {
 
       // Redirect to frontend with token
       const redirectUrl =
-        req.session.returnTo || "https://indgeos.onrender.com/auth-callback";
+        req.session.returnTo ||
+        "https://geospatial-ap-frontend.onrender.com/auth-callback";
       delete req.session.returnTo;
 
       res.redirect(`${redirectUrl}?token=${token}`);

@@ -149,15 +149,15 @@ export default function HomePage({ onLogout }) {
           setIsPOISectionVisible={setIsPOISectionVisible}
           isAdminBoundariesVisible={isAdminBoundariesVisible}
           setIsAdminBoundariesVisible={setIsAdminBoundariesVisible}
-          adminSettings={adminSettings} // ✅ Add
-          setAdminSettings={setAdminSettings} // ✅ Add
+          adminSettings={adminSettings}
+          setAdminSettings={setAdminSettings}
           lulcToggles={lulcToggles}
           setLulcToggles={setLulcToggles}
           isLULCSectionVisible={isLULCSectionVisible}
           topographyVisible={topographyVisible}
           setTopographyVisible={setTopographyVisible}
           setIsLULCSectionVisible={setIsLULCSectionVisible}
-          cadastralVisible={cadastralVisible} // ✅ Add this
+          cadastralVisible={cadastralVisible}
           setCadastralVisible={setCadastralVisible}
         />
 

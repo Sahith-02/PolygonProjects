@@ -10,13 +10,16 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 const allowedOrigins = [
-  "https://indgeos.onrender.com",
+  "https://geospatial-ap-frontend.onrender.com",
   "http://localhost:5173",
 ];
 
 app.use(
   cors({
-    origin: ["https://indgeos.onrender.com", "http://localhost:5173"],
+    origin: [
+      "https://geospatial-ap-frontend.onrender.com",
+      "http://localhost:5173",
+    ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
