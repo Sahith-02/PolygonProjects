@@ -51,11 +51,14 @@ export default function HomePage({ onLogout }) {
   });
 
   const handleLogout = async () => {
-    await fetch(`${API_BASE}/api/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-    onLogout();
+    try {
+      await fetch(`${API_BASE}/api/logout`, {
+        method: "POST",
+        credentials: "include"
+      });
+    } finally {
+      onLogout();
+    }
   };
 
   useEffect(() => {

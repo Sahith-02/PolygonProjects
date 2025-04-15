@@ -1,67 +1,63 @@
 import { useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const API_BASE = import.meta.env.VITE_API_BASE || "https://geospatial-ap-backend.onrender.com";
 
   useEffect(() => {
-    console.log("AuthCallback - Location search:", location.search);
-    
-    const params = new URLSearchParams(location.search);
-    const token = params.get("token");
-    const error = params.get("error");
+    const token = searchParams.get("token");
+    const error = searchParams.get("error");
 
     if (error) {
-      console.error("SAML Error:", error);
-      toast.error(`Login failed: ${error}`);
-      navigate("/", { replace: true });
+      toast.error(`SSO Login failed: ${error}`);
+      navigate("/");
       return;
     }
 
     if (!token) {
-      console.error("No token found in URL");
-      toast.error("Authentication failed: No token received");
-      navigate("/", { replace: true });
+      toast.error("No authentication token received");
+      navigate("/");
       return;
     }
 
-    // Verify token structure
-    if (token.split('.').length !== 3) {
-      console.error("Invalid token format");
-      toast.error("Authentication failed: Invalid token format");
-      navigate("/", { replace: true });
+    // Verify token structure before storing
+    const tokenParts = token.split('.');
+    if (tokenParts.length !== 3) {
+      toast.error("Invalid token format");
+      navigate("/");
       return;
     }
 
-    console.log("Storing token...");
-    localStorage.setItem("token", token);
+    const verifyToken = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/check-auth`, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include"
+        });
 
-    // Immediate redirect to home
-    console.log("Redirecting to /home");
-    navigate("/home", { replace: true });
+        if (!response.ok) throw new Error("Token verification failed");
 
-  }, [navigate, location]);
+        localStorage.setItem("token", token);
+        navigate("/home", { replace: true });
+      } catch (err) {
+        toast.error("Session verification failed");
+        navigate("/");
+      }
+    };
+
+    verifyToken();
+  }, [navigate, searchParams, API_BASE]);
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh',
-      backgroundColor: '#f5f5f5'
-    }}>
-      <div style={{
-        textAlign: 'center',
-        padding: '2rem',
-        background: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-      }}>
-        <h2>Completing Authentication...</h2>
-        <p>You will be redirected shortly</p>
+    <div className="flex items-center justify-center h-screen">
+      <div className="text-center p-8 bg-white rounded-lg shadow-md">
+        <h2 className="text-xl font-bold mb-2">Completing Authentication</h2>
+        <p>Please wait while we secure your session...</p>
+        <div className="mt-4 animate-spin w-10 h-10 border-4 border-blue-500 rounded-full border-t-transparent mx-auto"></div>
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
-import "../styles/LoginPageCss.css";
-import { toast, ToastContainer } from "react-toastify";
+import React, { useState } from "react";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 export default function LoginPage({ onLogin }) {
@@ -8,31 +7,7 @@ export default function LoginPage({ onLogin }) {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [ssoLoading, setSsoLoading] = useState(false);
-  const [apiStatus, setApiStatus] = useState(null);
-
   const API_BASE = import.meta.env.VITE_API_BASE || "https://geospatial-ap-backend.onrender.com";
-
-  useEffect(() => {
-    const checkApiStatus = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/status`, {
-          method: "GET",
-          credentials: "include",
-        });
-        const data = await res.json();
-        setApiStatus({ status: "online", data });
-        console.log("API Status:", data);
-      } catch (err) {
-        setApiStatus({
-          status: "offline",
-          error: err.message,
-        });
-        console.error("API Status check failed:", err);
-      }
-    };
-
-    checkApiStatus();
-  }, [API_BASE]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,11 +16,9 @@ export default function LoginPage({ onLogin }) {
     try {
       const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
+        credentials: "include"
       });
 
       if (!res.ok) {
@@ -53,12 +26,11 @@ export default function LoginPage({ onLogin }) {
         throw new Error(error.message || "Login failed");
       }
 
-      const data = await res.json();
-      localStorage.setItem("token", data.token);
-      toast.success("Login successful!");
-      setTimeout(() => onLogin(), 1000);
+      const { token } = await res.json();
+      localStorage.setItem("token", token);
+      onLogin();
     } catch (err) {
-      toast.error(err.message || "Invalid login");
+      toast.error(err.message || "Invalid credentials");
     } finally {
       setIsLoading(false);
     }
@@ -66,22 +38,13 @@ export default function LoginPage({ onLogin }) {
 
   const handleSSOLogin = () => {
     setSsoLoading(true);
-    // Clear any existing token
     localStorage.removeItem("token");
     
-    // Generate return URL with cache-busting
     const returnTo = encodeURIComponent(
       `${window.location.origin}/auth-callback?t=${Date.now()}`
     );
     
-    // Construct SAML URL
-    const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnTo}`;
-    
-    // For debugging
-    console.log("Initiating SSO redirect to:", samlUrl);
-    
-    // Redirect to SAML provider
-    window.location.href = samlUrl;
+    window.location.href = `${API_BASE}/api/auth/saml?returnTo=${returnTo}`;
   };
 
   return (
@@ -92,26 +55,18 @@ export default function LoginPage({ onLogin }) {
       <div className="right">
         <div className="title">
           <h1>Parcel Information Project</h1>
-          {apiStatus?.status !== "online" && (
-            <div className="api-status-error">
-              API Status: {apiStatus?.status}
-              {apiStatus?.error && <p>Error: {apiStatus.error}</p>}
-            </div>
-          )}
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="formuptext">
             <h1>Sign In</h1>
             <h5>Log in to your secure account</h5>
-            <p className="api-url">Using API at: {API_BASE}</p>
           </div>
 
           <label htmlFor="username">Username</label>
           <input
             type="text"
             value={username}
-            autoComplete="username"
             onChange={(e) => setUsername(e.target.value)}
             required
           />
@@ -120,7 +75,6 @@ export default function LoginPage({ onLogin }) {
           <input
             type="password"
             value={password}
-            autoComplete="current-password"
             onChange={(e) => setPassword(e.target.value)}
             required
           />
@@ -134,15 +88,12 @@ export default function LoginPage({ onLogin }) {
             <button
               type="button"
               onClick={handleSSOLogin}
-              className="sso-button"
               disabled={isLoading || ssoLoading}
             >
-              {ssoLoading ? "Connecting to OneLogin..." : "OneLogin SSO"}
+              {ssoLoading ? "Redirecting to SSO..." : "OneLogin SSO"}
             </button>
           </div>
         </form>
-
-        <ToastContainer position="top-center" />
       </div>
     </div>
   );
