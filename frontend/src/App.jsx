@@ -3,11 +3,11 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
-import AuthCallback from "./Pages/AuthCallback";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://geospatial-ap-backend.onrender.com";
 
@@ -15,12 +15,18 @@ function App() {
   const [authenticated, setAuthenticated] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Handle SSO token from URL (https://...?token=XYZ)
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (window.location.pathname === "/auth-callback") {
-      setLoading(false); // let AuthCallback render immediately
-      return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromURL = urlParams.get("token");
+
+    if (tokenFromURL) {
+      console.log("✅ Token found in URL");
+      localStorage.setItem("token", tokenFromURL);
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
+
+    const token = localStorage.getItem("token");
 
     if (!token) {
       setAuthenticated(false);
@@ -47,15 +53,41 @@ function App() {
   }, []);
 
   if (loading) {
-    return <p>Loading...</p>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <h2>Loading application...</h2>
+      </div>
+    );
   }
 
   return (
     <Router>
       <Routes>
-        <Route path="/" element={authenticated ? <Navigate to="/home" replace /> : <LoginPage onLogin={() => setAuthenticated(true)} />} />
-        <Route path="/home" element={authenticated ? <HomePage onLogout={() => { localStorage.removeItem("token"); setAuthenticated(false); }} /> : <Navigate to="/" replace />} />
-        <Route path="/auth-callback" element={<AuthCallback />} />
+        <Route
+          path="/"
+          element={
+            authenticated ? (
+              <Navigate to="/home" replace />
+            ) : (
+              <LoginPage onLogin={() => setAuthenticated(true)} />
+            )
+          }
+        />
+        <Route
+          path="/home"
+          element={
+            authenticated ? (
+              <HomePage
+                onLogout={() => {
+                  localStorage.removeItem("token");
+                  setAuthenticated(false);
+                }}
+              />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
