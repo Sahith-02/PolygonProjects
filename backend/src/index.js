@@ -140,6 +140,15 @@ app.post("/api/login", (req, res) => {
   res.json({ token });
 });
 
+// Handle root route
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    status: 'online',
+    service: 'Geospatial AP Backend',
+    timestamp: new Date().toISOString() 
+  });
+});
+
 // Add this with your other routes in index.js
 app.get("/api/status", (req, res) => {
   res.status(200).json({
