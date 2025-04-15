@@ -44,8 +44,8 @@ ejA9oXNr6cB+nqMq4G9UDPWbKuerMEITAL0SoxkKLNgq/MuGsxOIrmP3dB0g1oWq
 BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 -----END CERTIFICATE-----`,
     audience: "https://geospatial-ap-backend.onrender.com",
-    signatureAlgorithm: "sha256",
-    digestAlgorithm: "sha256",
+    signatureAlgorithm: "sha1",
+    digestAlgorithm: "sha1",
     acceptedClockSkewMs: 120000, // Increased from 60000 to 120000
     wantAssertionsSigned: true,
     authnRequestBinding: "HTTP-POST",

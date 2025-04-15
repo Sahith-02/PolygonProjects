@@ -58,8 +58,8 @@ passport.use(
       cert: SAML_CERT,
       disableRequestedAuthnContext: true,
       audience: "https://geospatial-ap-backend.onrender.com",
-      signatureAlgorithm: "sha256",
-      digestAlgorithm: "sha256",
+      signatureAlgorithm: "sha1",
+      digestAlgorithm: "sha1",
       identifierFormat: null,
       acceptedClockSkewMs: 120000, // Increased from 60000
       validateInResponseTo: false, // Added to fix signature validation issues
