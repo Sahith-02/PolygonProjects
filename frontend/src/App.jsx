@@ -9,7 +9,8 @@ import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://geospatial-ap-backend.onrender.com";
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "https://geospatial-ap-backend.onrender.com";
 
 function App() {
   const [authenticated, setAuthenticated] = useState(null);
@@ -65,6 +66,16 @@ function App() {
       <Routes>
         <Route
           path="/"
+          element={
+            authenticated ? (
+              <Navigate to="/home" replace />
+            ) : (
+              <LoginPage onLogin={() => setAuthenticated(true)} />
+            )
+          }
+        />
+        <Route
+          path="/auth-callback"
           element={
             authenticated ? (
               <Navigate to="/home" replace />
