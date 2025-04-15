@@ -14,9 +14,14 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret";
 const SAML_CALLBACK_URL =
   process.env.SAML_CALLBACK_URL ||
   "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback";
-const SAML_ENTRY_POINT = process.env.SAML_ENTRY_POINT; // OneLogin SAML 2.0 Endpoint
+// Updated to match the OneLogin config from Image 2
+const SAML_ENTRY_POINT =
+  process.env.SAML_ENTRY_POINT ||
+  "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-98272";
+// Updated to match the Issuer from Image 2
 const SAML_ISSUER =
-  process.env.SAML_ISSUER || "https://geospatial-ap-backend.onrender.com";
+  process.env.SAML_ISSUER ||
+  "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4";
 
 // The certificate you provided
 const SAML_CERT = `-----BEGIN CERTIFICATE-----
@@ -51,14 +56,20 @@ passport.use(
   new SamlStrategy(
     {
       callbackUrl: SAML_CALLBACK_URL,
-      entryPoint:
-        SAML_ENTRY_POINT ||
-        "https://vnrvjiet-dev.onelogin.com/trust/saml2/http-post/sso/", // Fallback for dev
+      entryPoint: SAML_ENTRY_POINT,
       issuer: SAML_ISSUER,
       cert: SAML_CERT,
       disableRequestedAuthnContext: true,
+      audience: "https://geospatial-ap-backend.onrender.com", // Added audience
+      signatureAlgorithm: "sha256", // Changed algorithm to lowercase
+      digestAlgorithm: "sha256", // Changed algorithm to lowercase
+      identifierFormat: null, // Added to make more lenient
+      acceptedClockSkewMs: 60000, // Allow clock skew
     },
     (profile, done) => {
+      // Log the profile for debugging
+      console.log("Auth route SAML profile:", JSON.stringify(profile, null, 2));
+
       // This function gets called when SAML authentication succeeds
       return done(null, {
         id: profile.nameID,
@@ -114,12 +125,21 @@ router.get(
 // SAML callback endpoint
 router.post(
   "/auth/saml/callback",
+  (req, res, next) => {
+    // Debug logging for SAML callback
+    console.log(
+      "Router SAML callback received with body keys:",
+      Object.keys(req.body || {})
+    );
+    next();
+  },
   passport.authenticate("saml", {
     failureRedirect: "/",
     failureFlash: true,
   }),
   (req, res) => {
     // Generate JWT token from SAML profile
+    console.log("Router SAML auth successful, user:", req.user);
     const token = jwt.sign(
       {
         id: req.user.id,

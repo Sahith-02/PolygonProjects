@@ -12,9 +12,14 @@ const PORT = process.env.PORT || 5001;
 const config = {
   JWT_SECRET: process.env.JWT_SECRET || "PolygonGeospatiala10",
   SAML: {
-    callbackUrl:"https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
-    entryPoint:"https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-98272",
-    issuer:"https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
+    callbackUrl:
+      "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
+    // Updated to exactly match Image 2 SAML 2.0 Endpoint
+    entryPoint:
+      "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-98272",
+    // Updated to match the Issuer URL from Image 2
+    issuer:
+      "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
     cert: `-----BEGIN CERTIFICATE-----
 MIID6DCCAtCgAwIBAgIUCptxODq6booyevMhXoQw0YXgQvkwDQYJKoZIhvcNAQEF
 BQAwSTEUMBIGA1UECgwLdm5ydmppZXQuaW4xFTATBgNVBAsMDE9uZUxvZ2luIElk
@@ -38,6 +43,7 @@ irFYhqJUa7/tyFKv4BAXfnz94eqYBTYiRLjPX/OoEl1O0OeZ8W8DbgTuQtOlEd1a
 ejA9oXNr6cB+nqMq4G9UDPWbKuerMEITAL0SoxkKLNgq/MuGsxOIrmP3dB0g1oWq
 BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 -----END CERTIFICATE-----`,
+    // Updated to match the Audience from Image 3
     audience: "https://geospatial-ap-backend.onrender.com",
   },
 };
@@ -53,10 +59,7 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: [
-      "https://geospatial-ap-frontend.onrender.com",
-      "http://localhost:5173",
-    ],
+    origin: allowedOrigins,
     credentials: true,
     methods: "GET,POST",
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -68,11 +71,12 @@ app.use(
   session({
     secret: "PolygonGeospatial@100",
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true, // Changed to true to ensure session is created
     cookie: {
-      secure: true, // Must be true in production
+      // In development, set secure to false if not using HTTPS
+      secure: process.env.NODE_ENV === "production",
       httpOnly: true,
-      sameSite: "none",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
@@ -82,20 +86,25 @@ app.use(
 passport.use(
   new SamlStrategy(
     {
+      callbackUrl: config.SAML.callbackUrl, // Updated to use config value consistently
       path: "/api/auth/saml/callback",
       entryPoint: config.SAML.entryPoint,
       issuer: config.SAML.issuer,
       cert: config.SAML.cert,
       audience: config.SAML.audience,
-       signatureAlgorithm: 'SHA-256',  // ✅ uppercase with hyphen
-      digestAlgorithm: 'SHA-256',
+      signatureAlgorithm: "sha256", // Changed to lowercase without hyphen
+      digestAlgorithm: "sha256", // Changed to lowercase without hyphen
       acceptedClockSkewMs: 60000,
       wantAssertionsSigned: true,
       authnRequestBinding: "HTTP-POST",
       disableRequestedAuthnContext: true,
+      // Added logging for debugging
+      identifierFormat: null,
     },
     (profile, done) => {
-      if (!profile.nameID) {
+      console.log("SAML Profile received:", JSON.stringify(profile, null, 2));
+      if (!profile || !profile.nameID) {
+        console.error("Invalid SAML profile:", profile);
         return done(new Error("No nameID in SAML response"));
       }
       return done(null, {
@@ -133,7 +142,7 @@ app.post("/api/login", (req, res) => {
     return res.status(401).json({ message: "Invalid credentials" });
   }
 
-  const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "10h" });
+  const token = jwt.sign({ username }, config.JWT_SECRET, { expiresIn: "10h" });
 
   res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -141,11 +150,11 @@ app.post("/api/login", (req, res) => {
 });
 
 // Handle root route
-app.get('/', (req, res) => {
-  res.status(200).json({ 
-    status: 'online',
-    service: 'Geospatial AP Backend',
-    timestamp: new Date().toISOString() 
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "online",
+    service: "Geospatial AP Backend",
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -155,12 +164,24 @@ app.get("/api/status", (req, res) => {
     status: "online",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",
+    samlConfig: {
+      entryPoint: config.SAML.entryPoint,
+      issuer: config.SAML.issuer,
+      callbackUrl: config.SAML.callbackUrl,
+      audience: config.SAML.audience,
+    },
   });
 });
 
 // SAML routes
 app.get(
   "/api/auth/saml",
+  (req, res, next) => {
+    // Log the request for debugging
+    console.log("SAML Auth Request - Headers:", req.headers);
+    console.log("SAML Auth Request - Query:", req.query);
+    next();
+  },
   passport.authenticate("saml", {
     failureRedirect: "/login",
     failureFlash: true,
@@ -169,11 +190,18 @@ app.get(
 
 app.post(
   "/api/auth/saml/callback",
+  (req, res, next) => {
+    // Log the callback for debugging
+    console.log("SAML Callback - Headers:", req.headers);
+    console.log("SAML Callback - Body keys:", Object.keys(req.body || {}));
+    next();
+  },
   passport.authenticate("saml", {
     failureRedirect: "/login",
     failureFlash: true,
   }),
   (req, res) => {
+    console.log("SAML Authentication successful, user:", req.user);
     const token = jwt.sign(
       {
         id: req.user.id,
@@ -196,7 +224,7 @@ app.get("/api/check-auth", (req, res) => {
   if (authHeader) {
     const token = authHeader.split(" ")[1];
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, config.JWT_SECRET);
       return res.json({ authenticated: true, user: decoded });
     } catch (err) {
       console.log("JWT verification failed:", err.message);
@@ -226,27 +254,30 @@ app.post("/api/logout", (req, res) => {
   }
 });
 
+// Request logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Add this at the end of your middleware setup
+// Error handling middleware
 app.use((err, req, res, next) => {
   console.error("SAML Error:", err);
   res.status(400).json({
     error: "SAML Authentication Failed",
     details: process.env.NODE_ENV === "production" ? null : err.message,
+    stack: process.env.NODE_ENV === "production" ? null : err.stack,
   });
 });
+
 // Start the server
-// At the end of index.js
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`SAML Config:`);
   console.log(`- Issuer: ${config.SAML.issuer}`);
   console.log(`- Callback: ${config.SAML.callbackUrl}`);
   console.log(`- Entry Point: ${config.SAML.entryPoint}`);
+  console.log(`- Audience: ${config.SAML.audience}`);
 });
 
 export default app;
