@@ -49,7 +49,7 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
     authnRequestBinding: "HTTP-POST",
     disableRequestedAuthnContext: true,
     identifierFormat: null,
-    validateInResponseTo: false, // Disabled to help with validation issues
+    // validateInResponseTo: false, // Disabled to help with validation issues
   },
 };
 
@@ -89,7 +89,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 // Setup session with more secure configuration
 app.use(
   session({
-    secret: "PolygonGeospatial@100",
+    secret: "PolygonGeospatial@10",
     resave: false,
     saveUninitialized: true,
     cookie: {
