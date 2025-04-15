@@ -4,7 +4,6 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 function AuthCallback() {
-  console.log("✅ AuthCallback rendered");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -13,11 +12,11 @@ function AuthCallback() {
   useEffect(() => {
     const processToken = async () => {
       try {
-        // Extract token from URL
         const params = new URLSearchParams(location.search);
         const token = params.get("token");
-        
-        console.log("Token received:", token ? token.substring(0, 20) + "..." : "none");
+
+        console.log("✅ AuthCallback rendered");
+        console.log("Token from URL:", token ? token.substring(0, 30) + "..." : "null");
 
         if (!token) {
           throw new Error("No authentication token received");
@@ -25,35 +24,30 @@ function AuthCallback() {
 
         // Store token in localStorage
         localStorage.setItem("token", token);
-        console.log("Token stored successfully");
+        console.log("Token stored");
 
-        // Verify token is valid before redirecting
-        try {
-          const API_BASE = "https://geospatial-ap-backend.onrender.com";// || "http://localhost:5001";
-          const response = await fetch(`${API_BASE}/api/check-auth`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            credentials: "include"
-          });
+        // IMPORTANT: Use absolute backend URL
+        const API_BASE = "https://geospatial-ap-backend.onrender.com";
+        const response = await fetch(`${API_BASE}/api/check-auth`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+        });
 
-          if (!response.ok) {
-            throw new Error("Token validation failed");
-          }
-
-          const data = await response.json();
-          if (!data.authenticated) {
-            throw new Error("Invalid token");
-          }
-
-          // Successful validation - redirect to home
-          navigate("/home", { replace: true });
-        } catch (validationError) {
-          console.error("Token validation error:", validationError);
-          throw new Error("Invalid token received");
+        if (!response.ok) {
+          throw new Error(`Auth check failed: ${response.status}`);
         }
+
+        const data = await response.json();
+        if (!data.authenticated) {
+          throw new Error("Token validation failed");
+        }
+
+        console.log("✅ Token is valid, redirecting to /home");
+        navigate("/home", { replace: true });
       } catch (err) {
-        console.error("AuthCallback Error:", err);
+        console.error("❌ AuthCallback Error:", err);
         setError(err.message);
         toast.error(err.message);
         navigate("/", { replace: true });
@@ -68,16 +62,19 @@ function AuthCallback() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
-        <div className="text-center p-6 max-w-md bg-white rounded-lg border border-gray-200 shadow-md">
-          <h2 className="text-xl mb-4">Completing authentication...</h2>
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600">Please wait while we complete the authentication process</p>
-        </div>
+        <h2 className="text-xl mb-2">Completing authentication...</h2>
+        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-gray-600">Please wait...</p>
       </div>
     );
   }
 
-  return null;
+  return error ? (
+    <div className="flex flex-col items-center justify-center h-screen text-red-600">
+      <h2>Authentication Failed</h2>
+      <p>{error}</p>
+    </div>
+  ) : null;
 }
 
 export default AuthCallback;
