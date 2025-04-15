@@ -87,7 +87,8 @@ passport.use(
       issuer: config.SAML.issuer,
       cert: config.SAML.cert,
       audience: config.SAML.audience,
-      signatureAlgorithm: "sha1",
+       signatureAlgorithm: 'SHA-256',  // ✅ uppercase with hyphen
+      digestAlgorithm: 'SHA-256',
       acceptedClockSkewMs: 60000,
       wantAssertionsSigned: true,
       authnRequestBinding: "HTTP-POST",
