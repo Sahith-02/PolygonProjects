@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -114,7 +115,7 @@ app.use(passport.session());
 // Import routes with error handling
 let authRouter;
 try {
-  const modulePath = new URL('./routes/auth.route.js', import.meta.url).pathname;
+  const modulePath = new URL('./Routes/auth.route.js', import.meta.url).pathname;
   authRouter = (await import(modulePath)).default;
 } catch (err) {
   console.error('Failed to load auth routes:', err);
