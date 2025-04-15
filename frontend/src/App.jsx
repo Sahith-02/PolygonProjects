@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
 import AuthCallback from "./Pages/AuthCallback";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://geospatial-ap-backend.onrender.com";
 
@@ -16,49 +18,91 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (window.location.pathname === "/auth-callback") {
-      setLoading(false); // let AuthCallback render immediately
-      return;
-    }
+    const checkAuth = async () => {
+      const token = localStorage.getItem("token");
+      
+      if (window.location.pathname === "/auth-callback") {
+        setLoading(false);
+        return;
+      }
 
-    if (!token) {
-      setAuthenticated(false);
-      setLoading(false);
-      return;
-    }
+      if (!token) {
+        setAuthenticated(false);
+        setLoading(false);
+        return;
+      }
 
-    fetch(`${API_BASE}/api/check-auth`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: "include",
-    })
-      .then((res) => res.json())
-      .then((data) => {
+      try {
+        const response = await fetch(`${API_BASE}/api/check-auth`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+        });
+
+        const data = await response.json();
         setAuthenticated(data.authenticated);
-        if (!data.authenticated) localStorage.removeItem("token");
-      })
-      .catch(() => {
+        if (!data.authenticated) {
+          localStorage.removeItem("token");
+        }
+      } catch (err) {
+        console.error("Auth check failed:", err);
         localStorage.removeItem("token");
         setAuthenticated(false);
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
 
   if (loading) {
-    return <p>Loading...</p>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-lg font-bold">Loading application...</h2>
+          <p>Checking authentication status</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={authenticated ? <Navigate to="/home" replace /> : <LoginPage onLogin={() => setAuthenticated(true)} />} />
-        <Route path="/home" element={authenticated ? <HomePage onLogout={() => { localStorage.removeItem("token"); setAuthenticated(false); }} /> : <Navigate to="/" replace />} />
-        <Route path="/auth-callback" element={<AuthCallback />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+    <>
+      <Router>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              authenticated ? (
+                <Navigate to="/home" replace />
+              ) : (
+                <LoginPage onLogin={() => setAuthenticated(true)} />
+              )
+            }
+          />
+          <Route
+            path="/home"
+            element={
+              authenticated ? (
+                <HomePage
+                  onLogout={() => {
+                    localStorage.removeItem("token");
+                    setAuthenticated(false);
+                  }}
+                />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route path="/auth-callback" element={<AuthCallback />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+      <ToastContainer position="top-center" autoClose={5000} />
+    </>
   );
 }
 

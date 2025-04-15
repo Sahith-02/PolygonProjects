@@ -58,9 +58,8 @@ const USERS = [{ username: "admin", password: "admin1" }];
 
 // Configure CORS with more permissive settings for troubleshooting
 const allowedOrigins = [
-  "https://geospatial-ap-frontend.onrender.com",
+  "https://your-frontend-domain.onrender.com",
   "http://localhost:5173",
-  "http://localhost:3000",
   "https://polygongeospatial.onelogin.com",
 ];
 
@@ -93,10 +92,10 @@ app.use(
     resave: false,
     saveUninitialized: true,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // true in production
+      secure: true,
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: "none",
+      maxAge: 24 * 60 * 60 * 1000,
     },
   })
 );

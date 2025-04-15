@@ -66,21 +66,21 @@ export default function LoginPage({ onLogin }) {
 
   const handleSSOLogin = () => {
     setSsoLoading(true);
-    // Generate a full absolute URL for the returnTo parameter
-    const origin = window.location.origin;
-    const returnTo = encodeURIComponent(`${origin}/auth-callback`);
-    
-    // Add cache-busting timestamp
-    const timestamp = Date.now();
-    
     // Clear any existing token
     localStorage.removeItem("token");
     
-    // Log the SSO URL for debugging
-    const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnTo}&t=${timestamp}`;
-    console.log("Redirecting to SSO URL:", samlUrl);
+    // Generate return URL with cache-busting
+    const returnTo = encodeURIComponent(
+      `${window.location.origin}/auth-callback?t=${Date.now()}`
+    );
     
-    // Redirect to SAML login page
+    // Construct SAML URL
+    const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnTo}`;
+    
+    // For debugging
+    console.log("Initiating SSO redirect to:", samlUrl);
+    
+    // Redirect to SAML provider
     window.location.href = samlUrl;
   };
 
