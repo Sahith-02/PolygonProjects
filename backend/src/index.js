@@ -42,10 +42,10 @@ ejA9oXNr6cB+nqMq4G9UDPWbKuerMEITAL0SoxkKLNgq/MuGsxOIrmP3dB0g1oWq
 BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 -----END CERTIFICATE-----`,
     audience: "https://geospatial-ap-backend.onrender.com",
-    signatureAlgorithm: "sha1", // Changed back to sha1 for maximum compatibility
-    digestAlgorithm: "sha1", // Changed back to sha1 for maximum compatibility
-    acceptedClockSkewMs: 500000, // Increased further to handle time sync issues
-    wantAssertionsSigned: false, // Changed to false to simplify signature validation requirements
+    signatureAlgorithm: "sha1", // Using SHA-1 to match OneLogin config
+    digestAlgorithm: "sha1", // Using SHA-1 to match OneLogin config
+    acceptedClockSkewMs: 500000, // Increased to handle time sync issues
+    wantAssertionsSigned: false, // Relaxed to help with validation issues
     authnRequestBinding: "HTTP-POST",
     disableRequestedAuthnContext: true,
     identifierFormat: null,
@@ -81,6 +81,11 @@ app.use(
   })
 );
 
+// Body parser middleware - IMPORTANT: Make sure this comes before passport initialization
+// Increased limit for larger SAML responses
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
 // Setup session with more secure configuration
 app.use(
   session({
@@ -95,11 +100,6 @@ app.use(
     },
   })
 );
-
-// Body parser middleware - IMPORTANT: Make sure this comes before passport initialization
-// Increased limit for larger SAML responses
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Configure Passport SAML with improved error handling
 passport.use(
@@ -118,7 +118,7 @@ passport.use(
       disableRequestedAuthnContext: config.SAML.disableRequestedAuthnContext,
       identifierFormat: config.SAML.identifierFormat,
       validateInResponseTo: config.SAML.validateInResponseTo,
-      wantAuthnResponseSigned: false, // Changed to false to simplify validation
+      wantAuthnResponseSigned: false, // Relaxed to help with validation
       forceAuthn: false, // Don't force reauthentication
       providerName: "OneLogin", // Provider display name
       decryptionPvk: null, // No decryption needed
@@ -278,6 +278,8 @@ app.post(
         config.JWT_SECRET,
         { expiresIn: "10h" }
       );
+
+      // Use stored returnTo or fall back to default
 
       // Use stored returnTo or fall back to default
       const redirectUrl =

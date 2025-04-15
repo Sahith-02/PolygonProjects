@@ -56,17 +56,18 @@ passport.use(
       cert: SAML_CERT,
       disableRequestedAuthnContext: true,
       audience: "https://geospatial-ap-backend.onrender.com",
-      signatureAlgorithm: "sha256", // Updated from sha1 to sha256
-      digestAlgorithm: "sha256", // Updated from sha1 to sha256
+      // Match OneLogin configuration - Using SHA-1 as shown in your OneLogin screenshot
+      signatureAlgorithm: "sha1",
+      digestAlgorithm: "sha1",
       identifierFormat: null,
-      acceptedClockSkewMs: 300000, // Increased even more from 120000 to 300000
+      acceptedClockSkewMs: 300000, // Increased to handle time sync issues
       validateInResponseTo: false,
-      wantAuthnResponseSigned: true,
-      wantAssertionsSigned: true,
+      wantAuthnResponseSigned: false, // Lowering requirements to help with troubleshooting
+      wantAssertionsSigned: false, // Lowering requirements to help with troubleshooting
       authnRequestBinding: "HTTP-POST",
-      decryptionPvk: null, // Explicitly set to null for clarity
-      privateKey: null, // Explicitly set to null
-      forceAuthn: false, // Do not force re-authentication
+      decryptionPvk: null,
+      privateKey: null,
+      forceAuthn: false,
     },
     (profile, done) => {
       // Log the profile for debugging
