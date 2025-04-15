@@ -12,15 +12,9 @@ const PORT = process.env.PORT || 5001;
 const config = {
   JWT_SECRET: process.env.JWT_SECRET || "PolygonGeospatiala10",
   SAML: {
-    callbackUrl:
-      process.env.SAML_CALLBACK_URL ||
-      "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
-    entryPoint:
-      process.env.SAML_ENTRY_POINT ||
-      "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-98272",
-    issuer:
-      process.env.SAML_ISSUER ||
-      "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
+    callbackUrl:"https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
+    entryPoint:"https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-98272",
+    issuer:"https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
     cert: `-----BEGIN CERTIFICATE-----
 MIID6DCCAtCgAwIBAgIUCptxODq6booyevMhXoQw0YXgQvkwDQYJKoZIhvcNAQEF
 BQAwSTEUMBIGA1UECgwLdm5ydmppZXQuaW4xFTATBgNVBAsMDE9uZUxvZ2luIElk
@@ -240,9 +234,9 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`SAML Config:`);
-  console.log(`- Issuer: ${process.env.SAML_ISSUER}`);
-  console.log(`- Callback: ${process.env.SAML_CALLBACK_URL}`);
-  console.log(`- Entry Point: ${process.env.SAML_ENTRY_POINT}`);
+  console.log(`- Issuer: ${config.SAML.issuer}`);
+  console.log(`- Callback: ${config.SAML.callbackUrl}`);
+  console.log(`- Entry Point: ${config.SAML.entryPoint}`);
 });
 
 export default app;
