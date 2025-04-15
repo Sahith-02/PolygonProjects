@@ -10,23 +10,22 @@ function AuthCallback() {
   useEffect(() => {
     const processToken = async () => {
       try {
-        // Extract token from URL query parameters
         const urlParams = new URLSearchParams(location.search);
         const token = urlParams.get("token");
-        
+
+        console.log("AuthCallback: Token received:", token);
+
         if (!token) {
           setError("No authentication token received");
           setLoading(false);
           return;
         }
-        
-        console.log("Token received, storing and redirecting...");
-        
-        // Store token in localStorage
+
         localStorage.setItem("token", token);
-        
-        // Redirect to home page
-        navigate("/home");
+
+        setTimeout(() => {
+          navigate("/home");
+        }, 100); // Smooth transition
       } catch (error) {
         console.error("Error processing authentication callback:", error);
         setError("Authentication failed. Please try again.");
