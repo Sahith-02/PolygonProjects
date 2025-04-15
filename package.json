@@ -18,5 +18,8 @@
   "bugs": {
     "url": "https://github.com/Vishnu2116/PolygonProjects/issues"
   },
-  "homepage": "https://github.com/Vishnu2116/PolygonProjects#readme"
+  "homepage": "https://github.com/Vishnu2116/PolygonProjects#readme",
+  "devDependencies": {
+    "vite-plugin-static-copy": "^2.3.1"
+  }
 }
