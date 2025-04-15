@@ -46,7 +46,7 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 // Fallback for local development
 const USERS = [{ username: "admin", password: "admin1" }];
 
-// Configure Passport SAML Strategy with updated parameters for proper signature validation
+// Configure Passport SAML Strategy with updated parameters
 passport.use(
   new SamlStrategy(
     {
@@ -56,14 +56,14 @@ passport.use(
       cert: SAML_CERT,
       disableRequestedAuthnContext: true,
       audience: "https://geospatial-ap-backend.onrender.com",
-      // Match OneLogin configuration - Using SHA-1 as shown in your OneLogin screenshot
+      // Match OneLogin configuration - Using SHA-1
       signatureAlgorithm: "sha1",
       digestAlgorithm: "sha1",
       identifierFormat: null,
-      acceptedClockSkewMs: 300000, // Increased to handle time sync issues
+      acceptedClockSkewMs: 300000, // 5 minutes clock skew
       validateInResponseTo: false,
-      wantAuthnResponseSigned: false, // Lowering requirements to help with troubleshooting
-      wantAssertionsSigned: false, // Lowering requirements to help with troubleshooting
+      wantAuthnResponseSigned: false,
+      wantAssertionsSigned: false,
       authnRequestBinding: "HTTP-POST",
       decryptionPvk: null,
       privateKey: null,
@@ -122,7 +122,7 @@ router.post("/login", (req, res) => {
   res.json({ token });
 });
 
-// SAML authentication initiation endpoint
+// SAML authentication initiation endpoint with better debugging
 router.get(
   "/auth/saml",
   (req, res, next) => {
@@ -140,7 +140,7 @@ router.get(
   })
 );
 
-// SAML callback endpoint with enhanced logging
+// SAML callback endpoint with enhanced error handling
 router.post(
   "/auth/saml/callback",
   (req, res, next) => {
@@ -173,6 +173,10 @@ router.post(
     console.log("Router SAML auth successful, user:", req.user);
 
     try {
+      if (!req.user) {
+        throw new Error("No user data received from SAML authentication");
+      }
+
       const token = jwt.sign(
         {
           id: req.user.id,
@@ -183,14 +187,24 @@ router.post(
         { expiresIn: "10h" }
       );
 
-      // Redirect to frontend with token
-      const redirectUrl =
+      // Get redirect URL from session or use default
+      const returnTo =
         req.session.returnTo ||
         "https://geospatial-ap-frontend.onrender.com/auth-callback";
       delete req.session.returnTo;
 
+      // Make sure token is properly URL encoded
+      const encodedToken = encodeURIComponent(token);
+      const redirectUrl = `${returnTo}?token=${encodedToken}`;
+
       console.log("Redirecting to:", redirectUrl);
-      res.redirect(`${redirectUrl}?token=${token}`);
+
+      // Set appropriate CORS headers
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+
+      // Perform redirect
+      res.redirect(redirectUrl);
     } catch (error) {
       console.error("JWT token generation error:", error);
       res.redirect("/api/auth/error?reason=token_generation_failed");
@@ -202,6 +216,10 @@ router.post(
 router.get("/auth/error", (req, res) => {
   const reason = req.query.reason || "unknown";
   console.error("Router SAML Authentication failed:", reason);
+
+  // Set CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
 
   res.status(400).json({
     error: "Authentication Failed",

@@ -66,10 +66,21 @@ export default function LoginPage({ onLogin }) {
 
   const handleSSOLogin = () => {
     setSsoLoading(true);
-    const returnTo = encodeURIComponent("https://geospatial-ap-frontend.onrender.com/auth-callback");
+    // Generate a full absolute URL for the returnTo parameter
+    const origin = window.location.origin;
+    const returnTo = encodeURIComponent(`${origin}/auth-callback`);
+    
+    // Add cache-busting timestamp
     const timestamp = Date.now();
-    const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnTo}&t=${timestamp}`;
+    
+    // Clear any existing token
     localStorage.removeItem("token");
+    
+    // Log the SSO URL for debugging
+    const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnTo}&t=${timestamp}`;
+    console.log("Redirecting to SSO URL:", samlUrl);
+    
+    // Redirect to SAML login page
     window.location.href = samlUrl;
   };
 

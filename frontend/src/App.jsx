@@ -18,32 +18,41 @@ function App() {
   useEffect(() => {
     const path = window.location.pathname;
 
-    // Allow AuthCallback page to load without token check
+    // Skip auth check if we're on the callback page to avoid redirect loops
     if (path === "/auth-callback") {
+      console.log("On auth-callback page, skipping auth check");
       setLoading(false);
       return;
     }
 
     const checkAuth = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setAuthenticated(false);
-        setLoading(false);
-        return;
-      }
-
       try {
+        console.log("Checking authentication status...");
+        const token = localStorage.getItem("token");
+        
+        if (!token) {
+          console.log("No token found in localStorage");
+          setAuthenticated(false);
+          setLoading(false);
+          return;
+        }
+
         const res = await fetch(`${API_BASE}/api/check-auth`, {
           headers: { Authorization: `Bearer ${token}` },
           credentials: "include",
         });
 
         const data = await res.json();
+        console.log("Auth check response:", data);
+        
         setAuthenticated(data.authenticated);
+        
         if (!data.authenticated) {
+          console.log("Token invalid, removing from localStorage");
           localStorage.removeItem("token");
         }
       } catch (err) {
+        console.error("Auth check failed:", err);
         localStorage.removeItem("token");
         setAuthenticated(false);
       } finally {
