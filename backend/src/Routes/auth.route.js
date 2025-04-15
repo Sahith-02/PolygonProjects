@@ -1,63 +1,31 @@
 import express from "express";
 import passport from "passport";
 import jwt from "jsonwebtoken";
-// import { validateSamlResponse } from '../utils/samlValidator.js'; 
 
 const router = express.Router();
-const JWT_SECRET = "PolygonGeospatial@10";
+const JWT_SECRET = process.env.JWT_SECRET || "PolygonGeospatial@10";
 
-// Remove all passport.serializeUser/deserializeUser and passport.use configurations
-// These should ONLY exist in index.js
-
-// Login endpoint for username/password
-router.post("/login", (req, res) => {
-  const { username, password } = req.body;
-  const USERS = [{ username: "admin", password: "admin1" }];
-
-  const user = USERS.find(
-    (u) => u.username === username && u.password === password
-  );
-  if (!user) return res.status(401).json({ message: "Invalid credentials" });
-
-  const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "10h" });
-  res.json({ token });
-});
-
-// SAML initiation endpoint
-router.get(
-  "/auth/saml",
-  (req, res, next) => {
-    if (req.query.returnTo) {
-      req.session.returnTo = req.query.returnTo;
-      console.log("Setting returnTo:", req.query.returnTo);
-    }
-    next();
-  },
-  passport.authenticate("saml")
-);
-
-// SAML callback endpoint
+// SAML Callback Route with Enhanced Error Handling
 router.post(
   "/auth/saml/callback",
   (req, res, next) => {
     if (!req.body?.SAMLResponse) {
-      console.error("SAML Validation: Empty response");
-      return res.redirect("/api/auth/error?reason=empty_response");
+      console.error("No SAMLResponse received");
+      return res.status(400).json({ error: "Missing SAML response" });
     }
     console.log(
-      "SAML Response received, length:",
+      "Received SAML response, length:",
       req.body.SAMLResponse.length
     );
     next();
   },
+
   passport.authenticate("saml", {
     failureRedirect: "/api/auth/error",
     failureFlash: true,
-    additionalParams: {
-      SigAlg: "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
-    },
   }),
-  (req, res) => {
+
+  async (req, res) => {
     try {
       if (!req.user) throw new Error("No user from SAML");
 
@@ -77,44 +45,30 @@ router.post(
 
       delete req.session.returnTo;
 
-      // Critical redirect headers
+      // Critical security headers
       res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
       res.setHeader("Access-Control-Allow-Credentials", "true");
       res.setHeader("Cache-Control", "no-store");
 
       const redirectUrl = `${returnTo}?token=${encodeURIComponent(token)}`;
-      console.log("Redirecting to:", redirectUrl);
+      console.log("Successful authentication, redirecting to:", redirectUrl);
 
-      res.redirect(redirectUrl);
+      return res.redirect(redirectUrl);
     } catch (error) {
-      console.error("Callback error:", error);
-      res.redirect("/auth/error?reason=callback_error");
+      console.error("Callback processing error:", error);
+      return res.status(500).json({
+        error: "Authentication failed",
+        details: process.env.NODE_ENV === "development" ? error.message : null,
+      });
     }
   }
 );
 
-// Error handling
+// Error route
 router.get("/auth/error", (req, res) => {
-  console.error("Auth error:", req.query.reason);
-  res.status(400).json({
-    error: "Authentication failed",
-    reason: req.query.reason,
-  });
-});
-
-// Auth check endpoint
-router.get("/check-auth", (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader) {
-    const token = authHeader.split(" ")[1];
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      return res.json({ authenticated: true, user: decoded });
-    } catch (err) {
-      console.error("JWT verify error:", err);
-    }
-  }
-  res.json({ authenticated: false });
+  const error = req.flash("error")[0] || "Unknown authentication error";
+  console.error("SAML Authentication Error:", error);
+  res.status(401).json({ error });
 });
 
 export default router;
