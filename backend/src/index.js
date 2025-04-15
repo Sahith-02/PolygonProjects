@@ -3,7 +3,7 @@ import cors from "cors";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as SamlStrategy } from "passport-saml";
-import authRouter from "./auth.route.js"; // Import the auth router
+import authRouter from "./Routes/auth.route.js"; // Import the auth router
 
 const app = express();
 const PORT = process.env.PORT || 5001;
