@@ -5,6 +5,24 @@ import jwt from "jsonwebtoken";
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "PolygonGeospatial@10";
 
+router.get(
+  "/auth/saml",
+  (req, res, next) => {
+    // Store returnTo URL if provided
+    if (req.query.returnTo) {
+      req.session.returnTo = req.query.returnTo;
+      console.log("Storing returnTo URL:", req.query.returnTo);
+    }
+    next();
+  },
+  passport.authenticate("saml", {
+    failureRedirect: "/api/auth/error",
+    additionalParams: {
+      SigAlg: "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+    },
+  })
+);
+
 // SAML Callback Route with Enhanced Error Handling
 router.post(
   "/auth/saml/callback",
