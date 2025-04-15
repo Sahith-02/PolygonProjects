@@ -81,28 +81,27 @@ export default function LoginPage({ onLogin }) {
     }
   };
 
-  const handleOneLoginAuth = () => {
-    setSsoLoading(true);
-    try {
-      const returnUrl = encodeURIComponent(
-        window.location.origin + "/auth-callback"
-      );
-      
-      // Make sure the URL is properly formatted
-      const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
-      console.log("Redirecting to SAML auth:", samlUrl);
-      
-      // Use setTimeout to make sure the user sees the loading state
-      setTimeout(() => {
-        window.location.href = samlUrl;
-      }, 500);
-    } catch (err) {
-      console.error("SSO redirect error:", err);
-      toast.error("SSO login failed. Please try again.");
-      setSsoLoading(false);
-    }
-  };
-
+ // Update in LoginPage.jsx - just the handleOneLoginAuth function
+const handleOneLoginAuth = () => {
+  setSsoLoading(true);
+  try {
+    // Encode the full URL including the protocol and domain
+    const returnUrl = encodeURIComponent(
+      window.location.origin + "/auth-callback"
+    );
+    
+    // Construct the SAML authentication URL
+    const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
+    console.log("Redirecting to SAML auth:", samlUrl);
+    
+    // Redirect the browser to the SAML authentication URL
+    window.location.href = samlUrl;
+  } catch (err) {
+    console.error("SSO redirect error:", err);
+    toast.error("SSO login failed. Please try again.");
+    setSsoLoading(false);
+  }
+};
   return (
     <div className="container">
       <div className="left">

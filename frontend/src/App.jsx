@@ -7,51 +7,80 @@ import {
 import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
-import AuthCallback from "./Pages/AuthCallback"; // Import the new component
+import AuthCallback from "./Pages/AuthCallback";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
 
 function App() {
   const [authenticated, setAuthenticated] = useState(null);
   const [allowed, setAllowed] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setAuthenticated(false);
-      return;
-    }
+    const checkAuthentication = async () => {
+      console.log("App: Checking authentication status");
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        console.log("App: No token found in localStorage");
+        setAuthenticated(false);
+        setLoading(false);
+        return;
+      }
+      
+      console.log("App: Token found, verifying with API");
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/check-auth`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include"
+        });
+        
+        const data = await res.json();
+        console.log("App: Auth check response:", data);
+        
+        setAuthenticated(data.authenticated);
+      } catch (error) {
+        console.error("App: Auth check failed:", error);
+        setAuthenticated(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (window.innerWidth < 1024) {
       setAllowed(false);
+      setLoading(false);
+    } else {
+      checkAuthentication();
     }
-
-    fetch(`${API_BASE}/api/check-auth`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => setAuthenticated(data.authenticated))
-      .catch(() => setAuthenticated(false));
   }, []);
   
+  // Handle device compatibility check
   if (!allowed) {
     return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          textAlign: "center",
-        }}
-      >
-        <h2>This website is only available on desktops and laptops.</h2>
+      <div className="flex justify-center items-center h-screen text-center p-4">
+        <div>
+          <h2 className="text-xl font-bold">This website is only available on desktops and laptops.</h2>
+          <p className="mt-2">Please access this site from a device with a larger screen.</p>
+        </div>
       </div>
     );
   }
 
-  if (authenticated === null) return <p>Loading...</p>;
+  // Handle loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4">Loading application...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router>
@@ -60,7 +89,7 @@ function App() {
           path="/"
           element={
             authenticated ? (
-              <Navigate to="/home" />
+              <Navigate to="/home" replace />
             ) : (
               <LoginPage onLogin={() => setAuthenticated(true)} />
             )
@@ -70,13 +99,16 @@ function App() {
           path="/home"
           element={
             authenticated ? (
-              <HomePage onLogout={() => setAuthenticated(false)} />
+              <HomePage onLogout={() => {
+                localStorage.removeItem("token");
+                setAuthenticated(false);
+              }} />
             ) : (
-              <Navigate to="/" />
+              <Navigate to="/" replace />
             )
           }
         />
-        {/* Add the new route for SAML callback */}
+        {/* AuthCallback doesn't need authentication check - it's handling the auth process */}
         <Route path="/auth-callback" element={<AuthCallback />} />
       </Routes>
     </Router>
