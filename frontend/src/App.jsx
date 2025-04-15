@@ -28,7 +28,7 @@ function App() {
         return;
       }
       
-      console.log("App: Token found, verifying with API");
+      console.log("App: Token found, verifying with API", token.substring(0, 10) + "...");
       
       try {
         const res = await fetch(`${API_BASE}/api/check-auth`, {
@@ -38,12 +38,24 @@ function App() {
           credentials: "include"
         });
         
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status}: ${res.statusText}`);
+        }
+        
         const data = await res.json();
         console.log("App: Auth check response:", data);
         
-        setAuthenticated(data.authenticated);
+        if (data.authenticated) {
+          console.log("App: Authentication confirmed");
+          setAuthenticated(true);
+        } else {
+          console.log("App: Authentication failed");
+          localStorage.removeItem("token"); // Clear invalid token
+          setAuthenticated(false);
+        }
       } catch (error) {
         console.error("App: Auth check failed:", error);
+        localStorage.removeItem("token"); // Clear token on error
         setAuthenticated(false);
       } finally {
         setLoading(false);
@@ -56,6 +68,16 @@ function App() {
     } else {
       checkAuthentication();
     }
+    
+    // Add window event listener to handle storage events (in case token changes in another tab)
+    const handleStorageChange = (e) => {
+      if (e.key === 'token') {
+        checkAuthentication();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
   
   // Handle device compatibility check
@@ -108,8 +130,10 @@ function App() {
             )
           }
         />
-        {/* AuthCallback doesn't need authentication check - it's handling the auth process */}
+        {/* AuthCallback is a special route that doesn't require auth check */}
         <Route path="/auth-callback" element={<AuthCallback />} />
+        {/* Catch-all route for any unmatched paths */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

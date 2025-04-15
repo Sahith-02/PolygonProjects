@@ -69,7 +69,7 @@ export default function LoginPage({ onLogin }) {
       if (data.token) {
         localStorage.setItem("token", data.token);
         toast.success("Login successful!");
-        onLogin();
+        setTimeout(() => onLogin(), 1000); // Give time for toast
       } else {
         throw new Error("No token received");
       }
@@ -81,27 +81,53 @@ export default function LoginPage({ onLogin }) {
     }
   };
 
- // Update in LoginPage.jsx - just the handleOneLoginAuth function
-const handleOneLoginAuth = () => {
-  setSsoLoading(true);
-  try {
-    // Encode the full URL including the protocol and domain
-    const returnUrl = encodeURIComponent(
-      window.location.origin + "/auth-callback"
-    );
+  const handleOneLoginAuth = () => {
+    setSsoLoading(true);
+    try {
+      // Get the full URL for the callback
+      const origin = window.location.origin;
+      const callbackPath = "/auth-callback";
+      const returnUrl = encodeURIComponent(origin + callbackPath);
+      
+      // Log the redirect URL for debugging
+      const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
+      console.log("Redirecting for SAML authentication:", samlUrl);
+      
+      // Save a flag in sessionStorage to handle redirection issues
+      sessionStorage.setItem("ssoRedirectInitiated", "true");
+      sessionStorage.setItem("ssoRedirectTime", Date.now().toString());
+      
+      // Redirect to SAML authentication endpoint
+      window.location.href = samlUrl;
+    } catch (err) {
+      console.error("SSO redirect error:", err);
+      toast.error("SSO login failed. Please try again.");
+      setSsoLoading(false);
+    }
+  };
+
+  // Check if we just returned from a failed SSO attempt
+  useEffect(() => {
+    const ssoRedirectInitiated = sessionStorage.getItem("ssoRedirectInitiated");
+    const ssoRedirectTime = sessionStorage.getItem("ssoRedirectTime");
     
-    // Construct the SAML authentication URL
-    const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
-    console.log("Redirecting to SAML auth:", samlUrl);
-    
-    // Redirect the browser to the SAML authentication URL
-    window.location.href = samlUrl;
-  } catch (err) {
-    console.error("SSO redirect error:", err);
-    toast.error("SSO login failed. Please try again.");
-    setSsoLoading(false);
-  }
-};
+    if (ssoRedirectInitiated === "true" && ssoRedirectTime) {
+      const now = Date.now();
+      const redirectTime = parseInt(ssoRedirectTime, 10);
+      const timeElapsed = now - redirectTime;
+      
+      // If we returned to login page within 30 seconds of SSO attempt, it might have failed
+      if (timeElapsed < 30000) {
+        toast.error("SSO login attempt may have failed. Please try again or use username/password.");
+        console.error("Possible SSO failure - redirected back to login page");
+      }
+      
+      // Clear the SSO redirect flags
+      sessionStorage.removeItem("ssoRedirectInitiated");
+      sessionStorage.removeItem("ssoRedirectTime");
+    }
+  }, []);
+
   return (
     <div className="container">
       <div className="left">
