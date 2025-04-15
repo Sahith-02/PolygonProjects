@@ -58,12 +58,12 @@ passport.use(
       cert: SAML_CERT,
       disableRequestedAuthnContext: true,
       audience: "https://geospatial-ap-backend.onrender.com",
-      signatureAlgorithm: "sha1", // Changed from sha256 to sha1
-      digestAlgorithm: "sha1", // Changed from sha256 to sha1
+      signatureAlgorithm: "sha1",
+      digestAlgorithm: "sha1",
       identifierFormat: null,
-      acceptedClockSkewMs: 300000, // Increased to 5 minutes
-      validateInResponseTo: false,
-      wantAuthnResponseSigned: false, // Changed to be more permissive
+      acceptedClockSkewMs: 120000, // Increased from 60000
+      validateInResponseTo: false, // Added to fix signature validation issues
+      wantAuthnResponseSigned: true, // Added to specify we want response signed
     },
     (profile, done) => {
       // Log the profile for debugging
@@ -106,7 +106,7 @@ router.post("/login", (req, res) => {
   res.json({ token });
 });
 
-// SAML authentication initiation endpoint with better error handling
+// SAML authentication initiation endpoint
 router.get(
   "/auth/saml",
   (req, res, next) => {
@@ -123,7 +123,7 @@ router.get(
   })
 );
 
-// Enhanced SAML callback endpoint with improved debugging
+// SAML callback endpoint with enhanced logging
 router.post(
   "/auth/saml/callback",
   (req, res, next) => {
@@ -135,24 +135,10 @@ router.post(
 
     if (req.body && req.body.SAMLResponse) {
       console.log("Router SAML Response length:", req.body.SAMLResponse.length);
-      // Log a bit more of the response for better debugging
-      const samlResponse = req.body.SAMLResponse;
-      const truncatedResponse =
-        samlResponse.length > 200
-          ? samlResponse.substring(0, 200) + "..."
-          : samlResponse;
-      console.log("Router SAML Response start:", truncatedResponse);
-
-      // Try to decode base64 response for better debugging
-      try {
-        const decoded = Buffer.from(samlResponse, "base64").toString("utf-8");
-        console.log(
-          "Decoded SAML response preview:",
-          decoded.substring(0, 500) + "..."
-        );
-      } catch (err) {
-        console.log("Failed to decode SAML response:", err.message);
-      }
+      console.log(
+        "Router SAML Response start:",
+        req.body.SAMLResponse.substring(0, 100) + "..."
+      );
     } else {
       console.log("Router - No SAMLResponse in body");
     }
@@ -160,34 +146,10 @@ router.post(
     console.log("Router Content-Type:", req.headers["content-type"]);
     next();
   },
-  (req, res, next) => {
-    // Add custom error handler
-    passport.authenticate("saml", (err, user, info) => {
-      if (err) {
-        console.error("SAML auth error:", err);
-        return res.redirect(
-          "/api/auth/error?reason=" + encodeURIComponent(err.message)
-        );
-      }
-
-      if (!user) {
-        console.error("SAML auth failed - no user returned");
-        return res.redirect("/api/auth/error?reason=authentication_failed");
-      }
-
-      req.logIn(user, (err) => {
-        if (err) {
-          console.error("SAML login error:", err);
-          return res.redirect(
-            "/api/auth/error?reason=" + encodeURIComponent(err.message)
-          );
-        }
-
-        // Continue to next middleware
-        next();
-      });
-    })(req, res, next);
-  },
+  passport.authenticate("saml", {
+    failureRedirect: "/api/auth/error",
+    failureFlash: true,
+  }),
   (req, res) => {
     // Generate JWT token from SAML profile
     console.log("Router SAML auth successful, user:", req.user);
@@ -211,7 +173,7 @@ router.post(
   }
 );
 
-// Improved error handling route
+// New route for handling authentication errors
 router.get("/auth/error", (req, res) => {
   const reason = req.query.reason || "unknown";
   console.error("Router SAML Authentication failed:", reason);
@@ -220,7 +182,7 @@ router.get("/auth/error", (req, res) => {
     error: "Authentication Failed",
     reason: reason,
     message:
-      "SAML authentication process failed. Please check OneLogin configuration or contact support.",
+      "SAML authentication process failed. Please try again or contact support.",
     timestamp: new Date().toISOString(),
   });
 });
@@ -256,7 +218,7 @@ router.post("/logout", (req, res) => {
   if (req.logout) {
     req.logout(function (err) {
       if (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        return next(err);
       }
       res.json({ success: true });
     });
