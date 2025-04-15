@@ -1,6 +1,7 @@
 import express from "express";
 import passport from "passport";
 import jwt from "jsonwebtoken";
+// import { validateSamlResponse } from '../utils/samlValidator.js'; 
 
 const router = express.Router();
 const JWT_SECRET = "PolygonGeospatial@10";
@@ -38,7 +39,24 @@ router.get(
 // SAML callback endpoint
 router.post(
   "/auth/saml/callback",
-  passport.authenticate("saml", { failureRedirect: "/auth/error" }),
+  (req, res, next) => {
+    if (!req.body?.SAMLResponse) {
+      console.error("SAML Validation: Empty response");
+      return res.redirect("/api/auth/error?reason=empty_response");
+    }
+    console.log(
+      "SAML Response received, length:",
+      req.body.SAMLResponse.length
+    );
+    next();
+  },
+  passport.authenticate("saml", {
+    failureRedirect: "/api/auth/error",
+    failureFlash: true,
+    additionalParams: {
+      SigAlg: "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+    },
+  }),
   (req, res) => {
     try {
       if (!req.user) throw new Error("No user from SAML");
