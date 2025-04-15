@@ -87,6 +87,7 @@ function App() {
             )
           }
         />
+        <Route path="/auth-callback" element={<AuthCallback />} />
         <Route
           path="/home"
           element={
@@ -102,7 +103,7 @@ function App() {
             )
           }
         />
-        <Route path="/auth-callback" element={<AuthCallback />} />
+        
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
