@@ -28,8 +28,6 @@ function App() {
         return;
       }
       
-      console.log("App: Token found, verifying with API", token.substring(0, 10) + "...");
-      
       try {
         const res = await fetch(`${API_BASE}/api/check-auth`, {
           headers: {
@@ -38,24 +36,17 @@ function App() {
           credentials: "include"
         });
         
-        if (!res.ok) {
-          throw new Error(`Server returned ${res.status}: ${res.statusText}`);
-        }
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
         
         const data = await res.json();
-        console.log("App: Auth check response:", data);
+        setAuthenticated(data.authenticated);
         
-        if (data.authenticated) {
-          console.log("App: Authentication confirmed");
-          setAuthenticated(true);
-        } else {
-          console.log("App: Authentication failed");
-          localStorage.removeItem("token"); // Clear invalid token
-          setAuthenticated(false);
+        if (!data.authenticated) {
+          localStorage.removeItem("token");
         }
       } catch (error) {
         console.error("App: Auth check failed:", error);
-        localStorage.removeItem("token"); // Clear token on error
+        localStorage.removeItem("token");
         setAuthenticated(false);
       } finally {
         setLoading(false);
@@ -69,11 +60,8 @@ function App() {
       checkAuthentication();
     }
     
-    // Add window event listener to handle storage events (in case token changes in another tab)
     const handleStorageChange = (e) => {
-      if (e.key === 'token') {
-        checkAuthentication();
-      }
+      if (e.key === 'token') checkAuthentication();
     };
     
     window.addEventListener('storage', handleStorageChange);

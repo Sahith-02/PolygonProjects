@@ -81,23 +81,22 @@ export default function LoginPage({ onLogin }) {
     }
   };
 
+ 
   const handleOneLoginAuth = () => {
     setSsoLoading(true);
     try {
-      // Get the full URL for the callback
       const origin = window.location.origin;
       const callbackPath = "/auth-callback";
       const returnUrl = encodeURIComponent(origin + callbackPath);
       
-      // Log the redirect URL for debugging
-      const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
-      console.log("Redirecting for SAML authentication:", samlUrl);
+      // Add timestamp to prevent caching
+      const timestamp = Date.now();
+      const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}&t=${timestamp}`;
       
-      // Save a flag in sessionStorage to handle redirection issues
-      sessionStorage.setItem("ssoRedirectInitiated", "true");
-      sessionStorage.setItem("ssoRedirectTime", Date.now().toString());
+      // Clear any existing token
+      localStorage.removeItem("token");
       
-      // Redirect to SAML authentication endpoint
+      // Redirect to SAML endpoint
       window.location.href = samlUrl;
     } catch (err) {
       console.error("SSO redirect error:", err);
