@@ -6,7 +6,7 @@ import { Strategy as SamlStrategy } from "passport-saml";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import authRouter from "./routes/auth.route.js";
+import authRouter from "./Routes/auth.route.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
