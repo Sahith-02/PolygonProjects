@@ -369,3 +369,53 @@ app.post("/api/logout", (req, res) => {
     res.json({ success: true });
   }
 });
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// Enhanced error handling middleware with more details
+app.use((err, req, res, next) => {
+  console.error("Error:", err);
+
+  // Special handling for SAML errors to get more details
+  if (err && err.message) {
+    if (err.message.includes("SAML")) {
+      console.error("SAML Error Details:", {
+        name: err.name,
+        message: err.message,
+        stack: err.stack,
+        cause: err.cause ? JSON.stringify(err.cause) : "No cause provided",
+      });
+    }
+
+    // Check for signature issues specifically
+    if (err.message.includes("signature")) {
+      console.error("Signature validation error:", err.message);
+      console.error(
+        "This may indicate a mismatch between the certificate in your code and the one used by OneLogin"
+      );
+    }
+  }
+
+  res.status(400).json({
+    error: "Request Failed",
+    message: err.message || "An unknown error occurred",
+    details: process.env.NODE_ENV === "production" ? null : err.message,
+    stack: process.env.NODE_ENV === "production" ? null : err.stack,
+  });
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`SAML Config:`);
+  console.log(`- Issuer: ${config.SAML.issuer}`);
+  console.log(`- Callback: ${config.SAML.callbackUrl}`);
+  console.log(`- Entry Point: ${config.SAML.entryPoint}`);
+  console.log(`- Audience: ${config.SAML.audience}`);
+});
+
+export default app;
