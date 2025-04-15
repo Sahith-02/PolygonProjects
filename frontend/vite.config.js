@@ -3,12 +3,11 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    port: 5173,
+  },
   build: {
     outDir: "dist",
   },
-  server: {
-    port: 5173,
-    // 🧠 This part helps dev server handle deep links
-    historyApiFallback: true,
-  },
+  base: "/",
 });

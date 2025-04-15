@@ -16,95 +16,47 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const path = window.location.pathname;
+    const token = localStorage.getItem("token");
+    if (window.location.pathname === "/auth-callback") {
+      setLoading(false); // let AuthCallback render immediately
+      return;
+    }
 
-    // Skip auth check if we're on the callback page to avoid redirect loops
-    if (path === "/auth-callback") {
-      console.log("On auth-callback page, skipping auth check");
+    if (!token) {
+      setAuthenticated(false);
       setLoading(false);
       return;
     }
 
-    const checkAuth = async () => {
-      try {
-        console.log("Checking authentication status...");
-        const token = localStorage.getItem("token");
-        
-        if (!token) {
-          console.log("No token found in localStorage");
-          setAuthenticated(false);
-          setLoading(false);
-          return;
-        }
-
-        const res = await fetch(`${API_BASE}/api/check-auth`, {
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: "include",
-        });
-
-        const data = await res.json();
-        console.log("Auth check response:", data);
-        
+    fetch(`${API_BASE}/api/check-auth`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
         setAuthenticated(data.authenticated);
-        
-        if (!data.authenticated) {
-          console.log("Token invalid, removing from localStorage");
-          localStorage.removeItem("token");
-        }
-      } catch (err) {
-        console.error("Auth check failed:", err);
+        if (!data.authenticated) localStorage.removeItem("token");
+      })
+      .catch(() => {
         localStorage.removeItem("token");
         setAuthenticated(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="mt-4">Loading app...</p>
-        </div>
-      </div>
-    );
+    return <p>Loading...</p>;
   }
 
   return (
     <Router>
       <Routes>
-        <Route
-          path="/"
-          element={
-            authenticated ? (
-              <Navigate to="/home" replace />
-            ) : (
-              <LoginPage onLogin={() => setAuthenticated(true)} />
-            )
-          }
-        />
+        <Route path="/" element={authenticated ? <Navigate to="/home" replace /> : <LoginPage onLogin={() => setAuthenticated(true)} />} />
+        <Route path="/home" element={authenticated ? <HomePage onLogout={() => { localStorage.removeItem("token"); setAuthenticated(false); }} /> : <Navigate to="/" replace />} />
         <Route path="/auth-callback" element={<AuthCallback />} />
-        <Route
-          path="/home"
-          element={
-            authenticated ? (
-              <HomePage
-                onLogout={() => {
-                  localStorage.removeItem("token");
-                  setAuthenticated(false);
-                }}
-              />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        
-        {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
