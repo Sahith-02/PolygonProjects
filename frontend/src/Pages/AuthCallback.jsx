@@ -2,29 +2,31 @@ import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 function AuthCallback() {
-  console.log('token got');
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     const token = new URLSearchParams(location.search).get("token");
 
+    console.log("✅ AuthCallback mounted");
+    console.log("Token from URL:", token?.substring(0, 30) + "...");
+
     if (!token) {
-      console.error("No token in callback URL");
-      return navigate("/", { replace: true });
+      console.error("❌ No token found in URL");
+      navigate("/", { replace: true });
+      return;
     }
 
     localStorage.setItem("token", token);
-    console.log("✅ Token saved:", token.substring(0, 20) + "...");
-
+    console.log("✅ Token saved to localStorage");
     navigate("/home", { replace: true });
   }, [navigate, location]);
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
+    <div className="flex items-center justify-center h-screen">
       <div className="text-center">
-        <h2 className="text-lg font-semibold">Completing login...</h2>
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mt-4" />
+        <h2 className="text-xl font-semibold">Completing login...</h2>
+        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mt-4 mx-auto" />
       </div>
     </div>
   );
