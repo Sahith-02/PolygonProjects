@@ -15,7 +15,13 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5173,
+    proxy: {
+      "/api": {
+        target: "https://geospatial-ap-backend.onrender.com",
+        changeOrigin: true,
+        secure: true,
+      },
+    },
   },
   build: {
     outDir: "dist",

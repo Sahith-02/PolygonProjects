@@ -238,63 +238,48 @@ app.get(
 app.post(
   "/api/auth/saml/callback",
   (req, res, next) => {
-    // Enhanced logging for better debugging
-    console.log("SAML Callback - Headers:", req.headers);
-    console.log("SAML Callback - Body keys:", Object.keys(req.body || {}));
-
-    if (req.body && req.body.SAMLResponse) {
-      console.log(
-        "SAML Response received (length):",
-        req.body.SAMLResponse.length
-      );
-      // Log first part of the response to check format
-      const samlResponseB64 = req.body.SAMLResponse;
-      console.log(
-        "SAML Response start:",
-        samlResponseB64.substring(0, 100) + "..."
-      );
-
-      // Verify content type
-      console.log("Content-Type:", req.headers["content-type"]);
-    } else {
-      console.log("No SAMLResponse found in request body");
-    }
+    console.log("SAML Callback - Content-Type:", req.headers["content-type"]);
     next();
   },
   passport.authenticate("saml", {
-    failureRedirect: "/api/auth/error?reason=passport_authentication_failed",
+    failureRedirect: "/api/auth/error?reason=auth_failed",
     failureFlash: true,
   }),
   (req, res) => {
-    console.log("SAML Authentication successful, user:", req.user);
     try {
+      // Generate token
       const token = jwt.sign(
         {
           id: req.user.id,
           email: req.user.email,
-          name: req.user.displayName || req.user.email,
+          name: req.user.displayName,
         },
         config.JWT_SECRET,
         { expiresIn: "10h" }
       );
 
-      // Use stored returnTo or fall back to default
-
-      // Use stored returnTo or fall back to default
-      const redirectUrl =
+      // Get redirect URL
+      const returnTo =
         req.session.returnTo ||
         "https://geospatial-ap-frontend.onrender.com/auth-callback";
-      delete req.session.returnTo;
 
-      console.log("Redirecting with token to:", redirectUrl);
-      res.redirect(`${redirectUrl}?token=${token}`);
+      // ********** CRITICAL HEADERS AND REDIRECT **********
+      res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+
+      const safeToken = encodeURIComponent(token);
+      const redirectUrl = `${returnTo}?token=${safeToken}&t=${Date.now()}`;
+
+      console.log("Redirecting to:", redirectUrl);
+      res.redirect(redirectUrl);
+      // ********** END CRITICAL SECTION **********
     } catch (error) {
-      console.error("Token generation error:", error);
-      res.redirect("/api/auth/error?reason=token_error");
+      console.error("Callback processing error:", error);
+      res.redirect("/api/auth/error?reason=processing_error");
     }
   }
 );
-
 // Improved SAML error handling route with detailed logging
 app.get("/api/auth/error", (req, res) => {
   const reason = req.query.reason || "unknown";

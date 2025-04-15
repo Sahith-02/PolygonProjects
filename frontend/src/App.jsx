@@ -18,45 +18,56 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const syncAuthState = async () => {
       const token = localStorage.getItem("token");
       
+      // Skip auth check if we're on callback route
       if (window.location.pathname === "/auth-callback") {
         setLoading(false);
         return;
       }
-
+  
       if (!token) {
         setAuthenticated(false);
         setLoading(false);
         return;
       }
-
+  
       try {
         const response = await fetch(`${API_BASE}/api/check-auth`, {
+          credentials: 'include',
           headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          credentials: "include",
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         });
-
+  
+        if (!response.ok) throw new Error('Auth check failed');
+        
         const data = await response.json();
         setAuthenticated(data.authenticated);
-        if (!data.authenticated) {
-          localStorage.removeItem("token");
-        }
       } catch (err) {
-        console.error("Auth check failed:", err);
+        console.error("Auth check error:", err);
         localStorage.removeItem("token");
         setAuthenticated(false);
       } finally {
         setLoading(false);
       }
     };
-
-    checkAuth();
+  
+    syncAuthState();
+  
+    // Add event listener for storage changes
+    const handleStorageChange = (e) => {
+      if (e.key === "token") {
+        syncAuthState();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
-
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">

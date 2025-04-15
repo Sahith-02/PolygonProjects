@@ -144,23 +144,15 @@ router.get(
 router.post(
   "/auth/saml/callback",
   (req, res, next) => {
-    // Enhanced debug logging for SAML callback
-    console.log(
-      "Router SAML callback received with body keys:",
-      Object.keys(req.body || {})
-    );
+    // Debug logging
+    console.log("SAML Callback - Headers:", req.headers);
+    console.log("SAML Callback - Body keys:", Object.keys(req.body || {}));
 
-    if (req.body && req.body.SAMLResponse) {
-      console.log("Router SAML Response length:", req.body.SAMLResponse.length);
+    if (req.body?.SAMLResponse) {
       console.log(
-        "Router SAML Response start:",
+        "Received SAMLResponse (truncated):",
         req.body.SAMLResponse.substring(0, 100) + "..."
       );
-
-      // Log content type to ensure proper parsing
-      console.log("Router Content-Type:", req.headers["content-type"]);
-    } else {
-      console.log("Router - No SAMLResponse in body");
     }
     next();
   },
@@ -169,12 +161,11 @@ router.post(
     failureFlash: true,
   }),
   (req, res) => {
-    // Generate JWT token from SAML profile
-    console.log("Router SAML auth successful, user:", req.user);
-
     try {
+      console.log("SAML Authentication successful, user:", req.user);
+
       if (!req.user) {
-        throw new Error("No user data received from SAML authentication");
+        throw new Error("No user data received from SAML");
       }
 
       const token = jwt.sign(
@@ -191,23 +182,30 @@ router.post(
       const returnTo =
         req.session.returnTo ||
         "https://geospatial-ap-frontend.onrender.com/auth-callback";
+
+      // Remove sensitive session data
       delete req.session.returnTo;
 
-      // Make sure token is properly URL encoded
+      // **************** CRITICAL SECTION START ****************
+      // Set CORS headers
+      res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Cache-Control", "no-store");
+
+      // URL encode the token
       const encodedToken = encodeURIComponent(token);
       const redirectUrl = `${returnTo}?token=${encodedToken}`;
 
-      console.log("Redirecting to:", redirectUrl);
+      console.log(`Final Redirect URL: ${redirectUrl}`);
+      // **************** CRITICAL SECTION END ****************
 
-      // Set appropriate CORS headers
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Access-Control-Allow-Credentials", "true");
-
-      // Perform redirect
+      // Perform the redirect
       res.redirect(redirectUrl);
     } catch (error) {
-      console.error("JWT token generation error:", error);
-      res.redirect("/api/auth/error?reason=token_generation_failed");
+      console.error("SAML Callback Error:", error);
+      res.redirect(
+        `/api/auth/error?reason=${encodeURIComponent(error.message)}`
+      );
     }
   }
 );
