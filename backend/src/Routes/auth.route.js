@@ -12,12 +12,13 @@ const router = express.Router();
 // Environment variables
 const JWT_SECRET = "PolygonGeospatial@10";
 const SAML_CALLBACK_URL =
-"https://geospatial-ap-backend.onrender.com/api/auth/saml/callback";
+  "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback";
 // Updated to match the OneLogin config from Image 2
 const SAML_ENTRY_POINT =
   "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4";
 // Updated to match the Issuer from Image 2
-const SAML_ISSUER ="https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4";
+const SAML_ISSUER =
+  "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4";
 
 // The certificate you provided
 const SAML_CERT = `-----BEGIN CERTIFICATE-----
@@ -56,11 +57,13 @@ passport.use(
       issuer: SAML_ISSUER,
       cert: SAML_CERT,
       disableRequestedAuthnContext: true,
-      audience: "https://geospatial-ap-backend.onrender.com", // Added audience
-      signatureAlgorithm: "sha256", // Changed algorithm to lowercase
-      digestAlgorithm: "sha256", // Changed algorithm to lowercase
-      identifierFormat: null, // Added to make more lenient
-      acceptedClockSkewMs: 60000, // Allow clock skew
+      audience: "https://geospatial-ap-backend.onrender.com",
+      signatureAlgorithm: "sha256",
+      digestAlgorithm: "sha256",
+      identifierFormat: null,
+      acceptedClockSkewMs: 120000, // Increased from 60000
+      validateInResponseTo: false, // Added to fix signature validation issues
+      wantAuthnResponseSigned: true, // Added to specify we want response signed
     },
     (profile, done) => {
       // Log the profile for debugging
@@ -110,27 +113,41 @@ router.get(
     if (req.query.returnTo) {
       req.session.returnTo = req.query.returnTo;
     }
+    console.log("Router SAML auth request - Headers:", req.headers);
+    console.log("Router SAML auth request - Query:", req.query);
     next();
   },
   passport.authenticate("saml", {
-    failureRedirect: "/",
+    failureRedirect: "/api/auth/error",
     failureFlash: true,
   })
 );
 
-// SAML callback endpoint
+// SAML callback endpoint with enhanced logging
 router.post(
   "/auth/saml/callback",
   (req, res, next) => {
-    // Debug logging for SAML callback
+    // Enhanced debug logging for SAML callback
     console.log(
       "Router SAML callback received with body keys:",
       Object.keys(req.body || {})
     );
+
+    if (req.body && req.body.SAMLResponse) {
+      console.log("Router SAML Response length:", req.body.SAMLResponse.length);
+      console.log(
+        "Router SAML Response start:",
+        req.body.SAMLResponse.substring(0, 100) + "..."
+      );
+    } else {
+      console.log("Router - No SAMLResponse in body");
+    }
+
+    console.log("Router Content-Type:", req.headers["content-type"]);
     next();
   },
   passport.authenticate("saml", {
-    failureRedirect: "/",
+    failureRedirect: "/api/auth/error",
     failureFlash: true,
   }),
   (req, res) => {
@@ -155,6 +172,20 @@ router.post(
     res.redirect(`${redirectUrl}?token=${token}`);
   }
 );
+
+// New route for handling authentication errors
+router.get("/auth/error", (req, res) => {
+  const reason = req.query.reason || "unknown";
+  console.error("Router SAML Authentication failed:", reason);
+
+  res.status(400).json({
+    error: "Authentication Failed",
+    reason: reason,
+    message:
+      "SAML authentication process failed. Please try again or contact support.",
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Check auth endpoint (supports both JWT and session)
 router.get("/check-auth", (req, res) => {

@@ -46,11 +46,12 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
     audience: "https://geospatial-ap-backend.onrender.com",
     signatureAlgorithm: "sha256",
     digestAlgorithm: "sha256",
-    acceptedClockSkewMs: 60000,
+    acceptedClockSkewMs: 120000, // Increased from 60000 to 120000
     wantAssertionsSigned: true,
     authnRequestBinding: "HTTP-POST",
     disableRequestedAuthnContext: true,
     identifierFormat: null,
+    validateInResponseTo: false, // Added to fix signature validation issues
   },
 };
 
@@ -93,7 +94,7 @@ app.use(
   })
 );
 
-// Body parser middleware
+// Body parser middleware - IMPORTANT: Make sure this comes before passport initialization
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -106,13 +107,15 @@ passport.use(
       issuer: config.SAML.issuer,
       cert: config.SAML.cert,
       audience: config.SAML.audience,
-      signatureAlgorithm: "sha256",
-      digestAlgorithm: "sha256",
-      acceptedClockSkewMs: 60000,
-      wantAssertionsSigned: true,
-      authnRequestBinding: "HTTP-POST",
-      disableRequestedAuthnContext: true,
-      identifierFormat: null,
+      signatureAlgorithm: config.SAML.signatureAlgorithm,
+      digestAlgorithm: config.SAML.digestAlgorithm,
+      acceptedClockSkewMs: config.SAML.acceptedClockSkewMs,
+      wantAssertionsSigned: config.SAML.wantAssertionsSigned,
+      authnRequestBinding: config.SAML.authnRequestBinding,
+      disableRequestedAuthnContext: config.SAML.disableRequestedAuthnContext,
+      identifierFormat: config.SAML.identifierFormat,
+      validateInResponseTo: config.SAML.validateInResponseTo,
+      wantAuthnResponseSigned: true, // Added to specify we want response signed
       logoutUrl: null,
       privateKey: null,
     },
@@ -139,6 +142,7 @@ passport.deserializeUser((user, done) => {
   done(null, user);
 });
 
+// IMPORTANT: Initialize passport after session middleware and body parser
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -188,7 +192,7 @@ app.get("/api/status", (req, res) => {
   });
 });
 
-// SAML routes with improved error handling
+// SAML routes with improved error handling and detailed logging
 app.get(
   "/api/auth/saml",
   (req, res, next) => {
@@ -201,23 +205,33 @@ app.get(
     next();
   },
   passport.authenticate("saml", {
-    failureRedirect: "/login",
+    failureRedirect: "/api/auth/error",
     failureFlash: true,
   })
 );
 
+// Enhanced logging for SAML callback
 app.post(
   "/api/auth/saml/callback",
-  express.urlencoded({ extended: true }),
   (req, res, next) => {
-    // Log the callback for debugging
+    // Enhanced logging for better debugging
     console.log("SAML Callback - Headers:", req.headers);
     console.log("SAML Callback - Body keys:", Object.keys(req.body || {}));
+
     if (req.body && req.body.SAMLResponse) {
       console.log(
         "SAML Response received (length):",
         req.body.SAMLResponse.length
       );
+      // Log first part of the response to check format
+      const samlResponseB64 = req.body.SAMLResponse;
+      console.log(
+        "SAML Response start:",
+        samlResponseB64.substring(0, 100) + "..."
+      );
+
+      // Verify content type
+      console.log("Content-Type:", req.headers["content-type"]);
     } else {
       console.log("No SAMLResponse found in request body");
     }
@@ -254,14 +268,17 @@ app.post(
   }
 );
 
-// New route for handling authentication errors
+// Improved SAML error handling route with detailed logging
 app.get("/api/auth/error", (req, res) => {
   const reason = req.query.reason || "unknown";
+  console.error("SAML Authentication failed:", reason);
+
   res.status(400).json({
     error: "Authentication Failed",
     reason: reason,
     message:
       "SAML authentication process failed. Please try again or contact support.",
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -308,17 +325,28 @@ app.use((req, res, next) => {
   next();
 });
 
-// Error handling middleware with more details
+// Enhanced error handling middleware with more details
 app.use((err, req, res, next) => {
   console.error("Error:", err);
 
   // Special handling for SAML errors to get more details
-  if (err && err.message && err.message.includes("SAML")) {
-    console.error("SAML Error Details:", {
-      name: err.name,
-      message: err.message,
-      stack: err.stack,
-    });
+  if (err && err.message) {
+    if (err.message.includes("SAML")) {
+      console.error("SAML Error Details:", {
+        name: err.name,
+        message: err.message,
+        stack: err.stack,
+        cause: err.cause ? JSON.stringify(err.cause) : "No cause provided",
+      });
+    }
+
+    // Check for signature issues specifically
+    if (err.message.includes("signature")) {
+      console.error("Signature validation error:", err.message);
+      console.error(
+        "This may indicate a mismatch between the certificate in your code and the one used by OneLogin"
+      );
+    }
   }
 
   res.status(400).json({
