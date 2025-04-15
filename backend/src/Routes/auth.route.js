@@ -9,18 +9,16 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
 
-// Environment variables
+// Environment variables - ensure these match exactly with OneLogin configuration
 const JWT_SECRET = "PolygonGeospatial@10";
 const SAML_CALLBACK_URL =
   "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback";
-// Updated to match the OneLogin config from Image 2
 const SAML_ENTRY_POINT =
   "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4";
-// Updated to match the Issuer from Image 2
 const SAML_ISSUER =
   "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4";
 
-// The certificate you provided
+// The certificate from OneLogin exactly as provided
 const SAML_CERT = `-----BEGIN CERTIFICATE-----
 MIID6DCCAtCgAwIBAgIUCptxODq6booyevMhXoQw0YXgQvkwDQYJKoZIhvcNAQEF
 BQAwSTEUMBIGA1UECgwLdm5ydmppZXQuaW4xFTATBgNVBAsMDE9uZUxvZ2luIElk
@@ -48,7 +46,7 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 // Fallback for local development
 const USERS = [{ username: "admin", password: "admin1" }];
 
-// Configure Passport SAML Strategy - Always setup regardless of environment
+// Configure Passport SAML Strategy with updated parameters for proper signature validation
 passport.use(
   new SamlStrategy(
     {
@@ -58,22 +56,35 @@ passport.use(
       cert: SAML_CERT,
       disableRequestedAuthnContext: true,
       audience: "https://geospatial-ap-backend.onrender.com",
-      signatureAlgorithm: "sha1",
-      digestAlgorithm: "sha1",
+      signatureAlgorithm: "sha256", // Updated from sha1 to sha256
+      digestAlgorithm: "sha256", // Updated from sha1 to sha256
       identifierFormat: null,
-      acceptedClockSkewMs: 120000, // Increased from 60000
-      validateInResponseTo: false, // Added to fix signature validation issues
-      wantAuthnResponseSigned: true, // Added to specify we want response signed
+      acceptedClockSkewMs: 300000, // Increased even more from 120000 to 300000
+      validateInResponseTo: false,
+      wantAuthnResponseSigned: true,
+      wantAssertionsSigned: true,
+      authnRequestBinding: "HTTP-POST",
+      decryptionPvk: null, // Explicitly set to null for clarity
+      privateKey: null, // Explicitly set to null
+      forceAuthn: false, // Do not force re-authentication
     },
     (profile, done) => {
       // Log the profile for debugging
-      console.log("Auth route SAML profile:", JSON.stringify(profile, null, 2));
+      console.log(
+        "Auth route SAML profile received:",
+        JSON.stringify(profile, null, 2)
+      );
 
       // This function gets called when SAML authentication succeeds
+      if (!profile || !profile.nameID) {
+        console.error("Invalid SAML profile received:", profile);
+        return done(new Error("Invalid SAML profile: No nameID in response"));
+      }
+
       return done(null, {
         id: profile.nameID,
         email: profile.nameID,
-        displayName: profile.nameID,
+        displayName: profile.nameID || profile.email || profile.name,
       });
     }
   )
@@ -81,15 +92,19 @@ passport.use(
 
 // Passport session setup
 passport.serializeUser((user, done) => {
-  done(null, user);
+  done(null, JSON.stringify(user));
 });
 
-passport.deserializeUser((user, done) => {
-  done(null, user);
+passport.deserializeUser((serialized, done) => {
+  try {
+    const user = JSON.parse(serialized);
+    done(null, user);
+  } catch (err) {
+    done(err);
+  }
 });
 
 router.use(passport.initialize());
-router.use(passport.session());
 
 // Login endpoint for username/password auth
 router.post("/login", (req, res) => {
@@ -112,6 +127,7 @@ router.get(
   (req, res, next) => {
     if (req.query.returnTo) {
       req.session.returnTo = req.query.returnTo;
+      console.log("Setting returnTo:", req.query.returnTo);
     }
     console.log("Router SAML auth request - Headers:", req.headers);
     console.log("Router SAML auth request - Query:", req.query);
@@ -139,11 +155,12 @@ router.post(
         "Router SAML Response start:",
         req.body.SAMLResponse.substring(0, 100) + "..."
       );
+
+      // Log content type to ensure proper parsing
+      console.log("Router Content-Type:", req.headers["content-type"]);
     } else {
       console.log("Router - No SAMLResponse in body");
     }
-
-    console.log("Router Content-Type:", req.headers["content-type"]);
     next();
   },
   passport.authenticate("saml", {
@@ -153,27 +170,34 @@ router.post(
   (req, res) => {
     // Generate JWT token from SAML profile
     console.log("Router SAML auth successful, user:", req.user);
-    const token = jwt.sign(
-      {
-        id: req.user.id,
-        email: req.user.email,
-        name: req.user.displayName,
-      },
-      JWT_SECRET,
-      { expiresIn: "10h" }
-    );
 
-    // Redirect to frontend with token
-    const redirectUrl =
-      req.session.returnTo ||
-      "https://geospatial-ap-frontend.onrender.com/auth-callback";
-    delete req.session.returnTo;
+    try {
+      const token = jwt.sign(
+        {
+          id: req.user.id,
+          email: req.user.email,
+          name: req.user.displayName,
+        },
+        JWT_SECRET,
+        { expiresIn: "10h" }
+      );
 
-    res.redirect(`${redirectUrl}?token=${token}`);
+      // Redirect to frontend with token
+      const redirectUrl =
+        req.session.returnTo ||
+        "https://geospatial-ap-frontend.onrender.com/auth-callback";
+      delete req.session.returnTo;
+
+      console.log("Redirecting to:", redirectUrl);
+      res.redirect(`${redirectUrl}?token=${token}`);
+    } catch (error) {
+      console.error("JWT token generation error:", error);
+      res.redirect("/api/auth/error?reason=token_generation_failed");
+    }
   }
 );
 
-// New route for handling authentication errors
+// New route for handling authentication errors with more detailed error messages
 router.get("/auth/error", (req, res) => {
   const reason = req.query.reason || "unknown";
   console.error("Router SAML Authentication failed:", reason);
@@ -184,6 +208,7 @@ router.get("/auth/error", (req, res) => {
     message:
       "SAML authentication process failed. Please try again or contact support.",
     timestamp: new Date().toISOString(),
+    help: "Check the server logs for more detailed error information.",
   });
 });
 
@@ -199,6 +224,7 @@ router.get("/check-auth", (req, res) => {
       const decoded = jwt.verify(token, JWT_SECRET);
       return res.json({ authenticated: true, user: decoded });
     } catch (err) {
+      console.error("JWT verification failed:", err.message);
       // JWT failed, check session
       if (req.isAuthenticated && req.isAuthenticated()) {
         return res.json({ authenticated: true, user: req.user });
@@ -218,7 +244,8 @@ router.post("/logout", (req, res) => {
   if (req.logout) {
     req.logout(function (err) {
       if (err) {
-        return next(err);
+        console.error("Logout error:", err);
+        return res.status(500).json({ success: false, error: err.message });
       }
       res.json({ success: true });
     });

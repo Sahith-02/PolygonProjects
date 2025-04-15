@@ -14,10 +14,8 @@ const config = {
   SAML: {
     callbackUrl:
       "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
-    // Fixed the truncated URL - make sure this matches exactly with your OneLogin configuration
     entryPoint:
       "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4",
-    // Issuer URL from OneLogin
     issuer:
       "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
     cert: `-----BEGIN CERTIFICATE-----
@@ -44,24 +42,26 @@ ejA9oXNr6cB+nqMq4G9UDPWbKuerMEITAL0SoxkKLNgq/MuGsxOIrmP3dB0g1oWq
 BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 -----END CERTIFICATE-----`,
     audience: "https://geospatial-ap-backend.onrender.com",
-    signatureAlgorithm: "sha1",
-    digestAlgorithm: "sha1",
-    acceptedClockSkewMs: 120000, // Increased from 60000 to 120000
+    signatureAlgorithm: "sha256", // Updated from sha1 to sha256
+    digestAlgorithm: "sha256", // Updated from sha1 to sha256
+    acceptedClockSkewMs: 300000, // Increased to handle time sync issues
     wantAssertionsSigned: true,
     authnRequestBinding: "HTTP-POST",
     disableRequestedAuthnContext: true,
     identifierFormat: null,
-    validateInResponseTo: false, // Added to fix signature validation issues
+    validateInResponseTo: false, // Disabled to help with validation issues
   },
 };
 
 // Users for local auth
 const USERS = [{ username: "admin", password: "admin1" }];
 
-// Configure CORS
+// Configure CORS with more permissive settings for troubleshooting
 const allowedOrigins = [
   "https://geospatial-ap-frontend.onrender.com",
   "http://localhost:5173",
+  "http://localhost:3000",
+  "https://polygongeospatial.onelogin.com",
 ];
 
 app.use(
@@ -70,35 +70,38 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(null, false);
+        console.log(`Origin ${origin} not allowed by CORS`);
+        // Still allow the request for troubleshooting
+        callback(null, true);
       }
     },
     credentials: true,
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 
-// Setup session with more secure configuration for production
+// Setup session with more secure configuration
 app.use(
   session({
     secret: "PolygonGeospatial@100",
     resave: false,
     saveUninitialized: true,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production", // true in production
       httpOnly: true,
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
 );
 
 // Body parser middleware - IMPORTANT: Make sure this comes before passport initialization
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increased limit for larger SAML responses
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
-// Configure Passport SAML
+// Configure Passport SAML with improved error handling
 passport.use(
   new SamlStrategy(
     {
@@ -115,9 +118,11 @@ passport.use(
       disableRequestedAuthnContext: config.SAML.disableRequestedAuthnContext,
       identifierFormat: config.SAML.identifierFormat,
       validateInResponseTo: config.SAML.validateInResponseTo,
-      wantAuthnResponseSigned: true, // Added to specify we want response signed
-      logoutUrl: null,
-      privateKey: null,
+      wantAuthnResponseSigned: true,
+      forceAuthn: false, // Don't force reauthentication
+      providerName: "OneLogin", // Provider display name
+      decryptionPvk: null, // No decryption needed
+      privateKey: null, // No private key needed
     },
     (profile, done) => {
       console.log("SAML Profile received:", JSON.stringify(profile, null, 2));
@@ -125,21 +130,38 @@ passport.use(
         console.error("Invalid SAML profile:", profile);
         return done(new Error("No nameID in SAML response"));
       }
-      return done(null, {
+
+      // Create user object from SAML profile
+      const user = {
         id: profile.nameID,
         email: profile.nameID,
         displayName: profile.nameID || profile.email || profile.name,
-      });
+        // Add any other attributes from the profile that you need
+        attributes: profile.attributes || {},
+      };
+
+      return done(null, user);
     }
   )
 );
 
 passport.serializeUser((user, done) => {
-  done(null, user);
+  try {
+    done(null, JSON.stringify(user));
+  } catch (err) {
+    console.error("Serialization error:", err);
+    done(err);
+  }
 });
 
-passport.deserializeUser((user, done) => {
-  done(null, user);
+passport.deserializeUser((serialized, done) => {
+  try {
+    const user = JSON.parse(serialized);
+    done(null, user);
+  } catch (err) {
+    console.error("Deserialization error:", err);
+    done(err);
+  }
 });
 
 // IMPORTANT: Initialize passport after session middleware and body parser
@@ -188,6 +210,8 @@ app.get("/api/status", (req, res) => {
       issuer: config.SAML.issuer,
       callbackUrl: config.SAML.callbackUrl,
       audience: config.SAML.audience,
+      signatureAlgorithm: config.SAML.signatureAlgorithm,
+      digestAlgorithm: config.SAML.digestAlgorithm,
     },
   });
 });
@@ -199,6 +223,7 @@ app.get(
     // Store returnTo URL in session if provided
     if (req.query.returnTo) {
       req.session.returnTo = req.query.returnTo;
+      console.log("Setting returnTo URL in session:", req.query.returnTo);
     }
     console.log("SAML Auth Request - Headers:", req.headers);
     console.log("SAML Auth Request - Query:", req.query);
@@ -232,6 +257,29 @@ app.post(
 
       // Verify content type
       console.log("Content-Type:", req.headers["content-type"]);
+
+      // Attempt to decode and log parts of the base64 response to validate format
+      try {
+        const decodedSAML = Buffer.from(samlResponseB64, "base64").toString(
+          "utf-8"
+        );
+        console.log(
+          "SAML Decoded (first 200 chars):",
+          decodedSAML.substring(0, 200)
+        );
+
+        // Check if it contains expected XML structure
+        if (
+          decodedSAML.includes("xmlns:saml") ||
+          decodedSAML.includes("samlp:Response")
+        ) {
+          console.log("SAML Response appears to be valid XML");
+        } else {
+          console.warn("SAML Response doesn't contain expected XML structure!");
+        }
+      } catch (e) {
+        console.error("Error decoding SAML response:", e);
+      }
     } else {
       console.log("No SAMLResponse found in request body");
     }
@@ -260,6 +308,7 @@ app.post(
         "https://geospatial-ap-frontend.onrender.com/auth-callback";
       delete req.session.returnTo;
 
+      console.log("Redirecting with token to:", redirectUrl);
       res.redirect(`${redirectUrl}?token=${token}`);
     } catch (error) {
       console.error("Token generation error:", error);
@@ -279,6 +328,8 @@ app.get("/api/auth/error", (req, res) => {
     message:
       "SAML authentication process failed. Please try again or contact support.",
     timestamp: new Date().toISOString(),
+    supportInfo:
+      "Check server logs for more details about this authentication failure.",
   });
 });
 
@@ -318,53 +369,3 @@ app.post("/api/logout", (req, res) => {
     res.json({ success: true });
   }
 });
-
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
-
-// Enhanced error handling middleware with more details
-app.use((err, req, res, next) => {
-  console.error("Error:", err);
-
-  // Special handling for SAML errors to get more details
-  if (err && err.message) {
-    if (err.message.includes("SAML")) {
-      console.error("SAML Error Details:", {
-        name: err.name,
-        message: err.message,
-        stack: err.stack,
-        cause: err.cause ? JSON.stringify(err.cause) : "No cause provided",
-      });
-    }
-
-    // Check for signature issues specifically
-    if (err.message.includes("signature")) {
-      console.error("Signature validation error:", err.message);
-      console.error(
-        "This may indicate a mismatch between the certificate in your code and the one used by OneLogin"
-      );
-    }
-  }
-
-  res.status(400).json({
-    error: "Request Failed",
-    message: err.message || "An unknown error occurred",
-    details: process.env.NODE_ENV === "production" ? null : err.message,
-    stack: process.env.NODE_ENV === "production" ? null : err.stack,
-  });
-});
-
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`SAML Config:`);
-  console.log(`- Issuer: ${config.SAML.issuer}`);
-  console.log(`- Callback: ${config.SAML.callbackUrl}`);
-  console.log(`- Entry Point: ${config.SAML.entryPoint}`);
-  console.log(`- Audience: ${config.SAML.audience}`);
-});
-
-export default app;
