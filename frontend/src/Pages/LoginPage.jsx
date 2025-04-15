@@ -83,6 +83,10 @@ export default function LoginPage({ onLogin }) {
 
  
   const handleOneLoginAuth = () => {
+    sessionStorage.setItem("ssoRedirectInitiated", "true");
+    sessionStorage.setItem("ssoRedirectTime", Date.now().toString());
+// window.location.href = samlUrl;
+
     setSsoLoading(true);
     try {
       const origin = window.location.origin;

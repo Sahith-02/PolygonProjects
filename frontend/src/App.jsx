@@ -17,35 +17,41 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const path = window.location.pathname;
+
+    // Allow /auth-callback to render immediately without auth check
+    if (path === "/auth-callback") {
+      setLoading(false);
+      return;
+    }
+
     const checkAuthentication = async () => {
-      console.log("App: Checking authentication status");
       const token = localStorage.getItem("token");
-      
+
       if (!token) {
-        console.log("App: No token found in localStorage");
         setAuthenticated(false);
         setLoading(false);
         return;
       }
-      
+
       try {
         const res = await fetch(`${API_BASE}/api/check-auth`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-          credentials: "include"
+          credentials: "include",
         });
-        
+
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        
+
         const data = await res.json();
         setAuthenticated(data.authenticated);
-        
+
         if (!data.authenticated) {
           localStorage.removeItem("token");
         }
       } catch (error) {
-        console.error("App: Auth check failed:", error);
+        console.error("Auth check failed:", error);
         localStorage.removeItem("token");
         setAuthenticated(false);
       } finally {
@@ -59,28 +65,30 @@ function App() {
     } else {
       checkAuthentication();
     }
-    
+
     const handleStorageChange = (e) => {
-      if (e.key === 'token') checkAuthentication();
+      if (e.key === "token") checkAuthentication();
     };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
-  
-  // Handle device compatibility check
+
   if (!allowed) {
     return (
       <div className="flex justify-center items-center h-screen text-center p-4">
         <div>
-          <h2 className="text-xl font-bold">This website is only available on desktops and laptops.</h2>
-          <p className="mt-2">Please access this site from a device with a larger screen.</p>
+          <h2 className="text-xl font-bold">
+            This website is only available on desktops and laptops.
+          </h2>
+          <p className="mt-2">
+            Please access this site from a device with a larger screen.
+          </p>
         </div>
       </div>
     );
   }
 
-  // Handle loading state
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -109,18 +117,18 @@ function App() {
           path="/home"
           element={
             authenticated ? (
-              <HomePage onLogout={() => {
-                localStorage.removeItem("token");
-                setAuthenticated(false);
-              }} />
+              <HomePage
+                onLogout={() => {
+                  localStorage.removeItem("token");
+                  setAuthenticated(false);
+                }}
+              />
             ) : (
               <Navigate to="/" replace />
             )
           }
         />
-        {/* AuthCallback is a special route that doesn't require auth check */}
         <Route path="/auth-callback" element={<AuthCallback />} />
-        {/* Catch-all route for any unmatched paths */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
