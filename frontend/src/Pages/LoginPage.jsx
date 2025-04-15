@@ -8,41 +8,42 @@ export default function LoginPage({ onLogin }) {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState(null);
+  const [ssoLoading, setSsoLoading] = useState(false);
 
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
 
- // In your useEffect for status checking:
-useEffect(() => {
-  const checkApiStatus = async () => {
-    try {
-      const timestamp = new Date().getTime();
-      const url = `${API_BASE}/api/status?t=${timestamp}`;
-      
-      const res = await fetch(url, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include"
-      });
+  useEffect(() => {
+    const checkApiStatus = async () => {
+      try {
+        const timestamp = new Date().getTime();
+        const url = `${API_BASE}/api/status?t=${timestamp}`;
+        
+        const res = await fetch(url, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include"
+        });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      
-      const data = await res.json();
-      setApiStatus({ status: "online", data });
-    } catch (err) {
-      setApiStatus({ 
-        status: "offline", 
-        error: err.message,
-        suggestion: "Please check your backend server is running"
-      });
-      console.error("API status check failed:", err);
-    }
-  };
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const data = await res.json();
+        setApiStatus({ status: "online", data });
+        console.log("API Status:", data);
+      } catch (err) {
+        setApiStatus({ 
+          status: "offline", 
+          error: err.message,
+          suggestion: "Please check your backend server is running"
+        });
+        console.error("API status check failed:", err);
+      }
+    };
 
-  checkApiStatus();
-  const interval = setInterval(checkApiStatus, 30000); // Check every 30 seconds
-  
-  return () => clearInterval(interval);
-}, [API_BASE]);
+    checkApiStatus();
+    const interval = setInterval(checkApiStatus, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [API_BASE]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,11 +82,25 @@ useEffect(() => {
   };
 
   const handleOneLoginAuth = () => {
-    const returnUrl = encodeURIComponent(
-      window.location.origin + "/auth-callback"
-    );
-    const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
-    window.location.href = samlUrl;
+    setSsoLoading(true);
+    try {
+      const returnUrl = encodeURIComponent(
+        window.location.origin + "/auth-callback"
+      );
+      
+      // Make sure the URL is properly formatted
+      const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnUrl}`;
+      console.log("Redirecting to SAML auth:", samlUrl);
+      
+      // Use setTimeout to make sure the user sees the loading state
+      setTimeout(() => {
+        window.location.href = samlUrl;
+      }, 500);
+    } catch (err) {
+      console.error("SSO redirect error:", err);
+      toast.error("SSO login failed. Please try again.");
+      setSsoLoading(false);
+    }
   };
 
   return (
@@ -133,7 +148,7 @@ useEffect(() => {
             required
           />
 
-          <button type="submit" disabled={isLoading}>
+          <button type="submit" disabled={isLoading || ssoLoading}>
             {isLoading ? "Signing In..." : "Sign In"}
           </button>
 
@@ -142,10 +157,10 @@ useEffect(() => {
             <button
               type="button"
               onClick={handleOneLoginAuth}
-              disabled={isLoading}
+              disabled={isLoading || ssoLoading}
               className="sso-button"
             >
-              OneLogin SSO
+              {ssoLoading ? "Connecting to OneLogin..." : "OneLogin SSO"}
             </button>
           </div>
         </form>

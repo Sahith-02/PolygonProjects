@@ -10,14 +10,14 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 // Environment Configuration - MUST match exactly with OneLogin
 const config = {
-  JWT_SECRET: process.env.JWT_SECRET || "PolygonGeospatiala10",
+  JWT_SECRET: "PolygonGeospatial@10",
   SAML: {
     callbackUrl:
       "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
-    // Updated to exactly match Image 2 SAML 2.0 Endpoint
+    // Fixed the truncated URL - make sure this matches exactly with your OneLogin configuration
     entryPoint:
-      "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-98272",
-    // Updated to match the Issuer URL from Image 2
+      "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4",
+    // Issuer URL from OneLogin
     issuer:
       "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4",
     cert: `-----BEGIN CERTIFICATE-----
@@ -43,8 +43,14 @@ irFYhqJUa7/tyFKv4BAXfnz94eqYBTYiRLjPX/OoEl1O0OeZ8W8DbgTuQtOlEd1a
 ejA9oXNr6cB+nqMq4G9UDPWbKuerMEITAL0SoxkKLNgq/MuGsxOIrmP3dB0g1oWq
 BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 -----END CERTIFICATE-----`,
-    // Updated to match the Audience from Image 3
     audience: "https://geospatial-ap-backend.onrender.com",
+    signatureAlgorithm: "sha256",
+    digestAlgorithm: "sha256",
+    acceptedClockSkewMs: 60000,
+    wantAssertionsSigned: true,
+    authnRequestBinding: "HTTP-POST",
+    disableRequestedAuthnContext: true,
+    identifierFormat: null,
   },
 };
 
@@ -59,21 +65,26 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     credentials: true,
-    methods: "GET,POST",
+    methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// Setup session
+// Setup session with more secure configuration for production
 app.use(
   session({
     secret: "PolygonGeospatial@100",
     resave: false,
-    saveUninitialized: true, // Changed to true to ensure session is created
+    saveUninitialized: true,
     cookie: {
-      // In development, set secure to false if not using HTTPS
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
@@ -82,24 +93,28 @@ app.use(
   })
 );
 
+// Body parser middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Configure Passport SAML
 passport.use(
   new SamlStrategy(
     {
-      callbackUrl: config.SAML.callbackUrl, // Updated to use config value consistently
-      path: "/api/auth/saml/callback",
+      callbackUrl: config.SAML.callbackUrl,
       entryPoint: config.SAML.entryPoint,
       issuer: config.SAML.issuer,
       cert: config.SAML.cert,
       audience: config.SAML.audience,
-      signatureAlgorithm: "sha256", // Changed to lowercase without hyphen
-      digestAlgorithm: "sha256", // Changed to lowercase without hyphen
+      signatureAlgorithm: "sha256",
+      digestAlgorithm: "sha256",
       acceptedClockSkewMs: 60000,
       wantAssertionsSigned: true,
       authnRequestBinding: "HTTP-POST",
       disableRequestedAuthnContext: true,
-      // Added logging for debugging
       identifierFormat: null,
+      logoutUrl: null,
+      privateKey: null,
     },
     (profile, done) => {
       console.log("SAML Profile received:", JSON.stringify(profile, null, 2));
@@ -110,6 +125,7 @@ passport.use(
       return done(null, {
         id: profile.nameID,
         email: profile.nameID,
+        displayName: profile.nameID || profile.email || profile.name,
       });
     }
   )
@@ -125,7 +141,6 @@ passport.deserializeUser((user, done) => {
 
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(express.json());
 
 // Enable pre-flight for all routes
 app.options("*", cors());
@@ -158,7 +173,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// Add this with your other routes in index.js
+// Status endpoint with improved debugging info
 app.get("/api/status", (req, res) => {
   res.status(200).json({
     status: "online",
@@ -173,11 +188,14 @@ app.get("/api/status", (req, res) => {
   });
 });
 
-// SAML routes
+// SAML routes with improved error handling
 app.get(
   "/api/auth/saml",
   (req, res, next) => {
-    // Log the request for debugging
+    // Store returnTo URL in session if provided
+    if (req.query.returnTo) {
+      req.session.returnTo = req.query.returnTo;
+    }
     console.log("SAML Auth Request - Headers:", req.headers);
     console.log("SAML Auth Request - Query:", req.query);
     next();
@@ -190,32 +208,62 @@ app.get(
 
 app.post(
   "/api/auth/saml/callback",
+  express.urlencoded({ extended: true }),
   (req, res, next) => {
     // Log the callback for debugging
     console.log("SAML Callback - Headers:", req.headers);
     console.log("SAML Callback - Body keys:", Object.keys(req.body || {}));
+    if (req.body && req.body.SAMLResponse) {
+      console.log(
+        "SAML Response received (length):",
+        req.body.SAMLResponse.length
+      );
+    } else {
+      console.log("No SAMLResponse found in request body");
+    }
     next();
   },
   passport.authenticate("saml", {
-    failureRedirect: "/login",
+    failureRedirect: "/api/auth/error",
     failureFlash: true,
   }),
   (req, res) => {
     console.log("SAML Authentication successful, user:", req.user);
-    const token = jwt.sign(
-      {
-        id: req.user.id,
-        email: req.user.email,
-      },
-      config.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
+    try {
+      const token = jwt.sign(
+        {
+          id: req.user.id,
+          email: req.user.email,
+          name: req.user.displayName || req.user.email,
+        },
+        config.JWT_SECRET,
+        { expiresIn: "10h" }
+      );
 
-    res.redirect(
-      `https://geospatial-ap-frontend.onrender.com/auth-callback?token=${token}`
-    );
+      // Use stored returnTo or fall back to default
+      const redirectUrl =
+        req.session.returnTo ||
+        "https://geospatial-ap-frontend.onrender.com/auth-callback";
+      delete req.session.returnTo;
+
+      res.redirect(`${redirectUrl}?token=${token}`);
+    } catch (error) {
+      console.error("Token generation error:", error);
+      res.redirect("/api/auth/error?reason=token_error");
+    }
   }
 );
+
+// New route for handling authentication errors
+app.get("/api/auth/error", (req, res) => {
+  const reason = req.query.reason || "unknown";
+  res.status(400).json({
+    error: "Authentication Failed",
+    reason: reason,
+    message:
+      "SAML authentication process failed. Please try again or contact support.",
+  });
+});
 
 // Auth check route
 app.get("/api/check-auth", (req, res) => {
@@ -260,11 +308,22 @@ app.use((req, res, next) => {
   next();
 });
 
-// Error handling middleware
+// Error handling middleware with more details
 app.use((err, req, res, next) => {
-  console.error("SAML Error:", err);
+  console.error("Error:", err);
+
+  // Special handling for SAML errors to get more details
+  if (err && err.message && err.message.includes("SAML")) {
+    console.error("SAML Error Details:", {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    });
+  }
+
   res.status(400).json({
-    error: "SAML Authentication Failed",
+    error: "Request Failed",
+    message: err.message || "An unknown error occurred",
     details: process.env.NODE_ENV === "production" ? null : err.message,
     stack: process.env.NODE_ENV === "production" ? null : err.stack,
   });

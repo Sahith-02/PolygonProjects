@@ -10,18 +10,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
 
 // Environment variables
-const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret";
+const JWT_SECRET = "PolygonGeospatial@10";
 const SAML_CALLBACK_URL =
-  process.env.SAML_CALLBACK_URL ||
-  "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback";
+"https://geospatial-ap-backend.onrender.com/api/auth/saml/callback";
 // Updated to match the OneLogin config from Image 2
 const SAML_ENTRY_POINT =
-  process.env.SAML_ENTRY_POINT ||
-  "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-98272";
+  "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4";
 // Updated to match the Issuer from Image 2
-const SAML_ISSUER =
-  process.env.SAML_ISSUER ||
-  "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4";
+const SAML_ISSUER ="https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4";
 
 // The certificate you provided
 const SAML_CERT = `-----BEGIN CERTIFICATE-----
