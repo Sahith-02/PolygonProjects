@@ -3,17 +3,21 @@ import "../styles/LoginPageCss.css";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-export default function LoginPage({ onLogin }) {
+export default function LoginPage({ onLogin, authError }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [ssoLoading, setSsoLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState(null);
 
-  
   const API_BASE = import.meta.env.VITE_API_BASE || "https://geospatial-ap-backend.onrender.com";
 
   useEffect(() => {
+    // Show auth error if present
+    if (authError) {
+      toast.error(`Authentication error: ${authError}`);
+    }
+    
     const checkApiStatus = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/status`, {
@@ -33,7 +37,7 @@ export default function LoginPage({ onLogin }) {
     };
 
     checkApiStatus();
-  }, [API_BASE]);
+  }, [API_BASE, authError]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -67,15 +71,16 @@ export default function LoginPage({ onLogin }) {
 
   const handleSSOLogin = () => {
     setSsoLoading(true);
+    
+    // Clear any existing token before starting SSO
+    localStorage.removeItem("token");
+    
     // Generate a full absolute URL for the returnTo parameter
     const origin = window.location.origin;
     const returnTo = encodeURIComponent(`${origin}/auth-callback`);
     
     // Add cache-busting timestamp
     const timestamp = Date.now();
-    
-    // Clear any existing token
-    localStorage.removeItem("token");
     
     // Log the SSO URL for debugging
     const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnTo}&t=${timestamp}`;
@@ -105,7 +110,7 @@ export default function LoginPage({ onLogin }) {
           <div className="formuptext">
             <h1>Sign In</h1>
             <h5>Log in to your secure account</h5>
-            <p className="api-url">Using API at: {API_BASE}</p>
+            <p className="api-url text-xs text-gray-500">Using API at: {API_BASE}</p>
           </div>
 
           <label htmlFor="username">Username</label>

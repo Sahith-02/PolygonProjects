@@ -14,6 +14,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "https://geospatial-ap-backend
 function App() {
   const [authenticated, setAuthenticated] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -37,10 +38,19 @@ function App() {
           return;
         }
 
+        console.log("Token found, validating with server...");
+        
         const res = await fetch(`${API_BASE}/api/check-auth`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            "Cache-Control": "no-cache"  // Prevent caching of auth responses
+          },
           credentials: "include",
         });
+
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status}: ${res.statusText}`);
+        }
 
         const data = await res.json();
         console.log("Auth check response:", data);
@@ -50,9 +60,13 @@ function App() {
         if (!data.authenticated) {
           console.log("Token invalid, removing from localStorage");
           localStorage.removeItem("token");
+          setAuthError("Authentication expired or invalid");
+        } else {
+          console.log("User authenticated successfully");
         }
       } catch (err) {
         console.error("Auth check failed:", err);
+        setAuthError(err.message);
         localStorage.removeItem("token");
         setAuthenticated(false);
       } finally {
@@ -61,6 +75,19 @@ function App() {
     };
 
     checkAuth();
+  }, []);
+
+  // Force re-check of authentication when local storage changes
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'token') {
+        console.log("Token changed in storage, updating auth state");
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   if (loading) {
@@ -83,7 +110,10 @@ function App() {
             authenticated ? (
               <Navigate to="/home" replace />
             ) : (
-              <LoginPage onLogin={() => setAuthenticated(true)} />
+              <LoginPage 
+                onLogin={() => setAuthenticated(true)} 
+                authError={authError}
+              />
             )
           }
         />
@@ -104,7 +134,7 @@ function App() {
           }
         />
         
-        {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
