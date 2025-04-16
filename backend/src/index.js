@@ -25,13 +25,17 @@ app.use(
         callback(null, true);
       } else {
         console.log(`Origin ${origin} not allowed by CORS`);
-        // Still allow the request for troubleshooting
         callback(null, true);
       }
     },
     credentials: true,
     methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Cache-Control",
+    ],
   })
 );
 

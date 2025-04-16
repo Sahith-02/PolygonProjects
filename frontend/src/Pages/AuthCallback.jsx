@@ -65,7 +65,7 @@ function AuthCallback() {
           const response = await fetch(`${API_BASE}/api/check-auth`, {
             headers: { 
               Authorization: `Bearer ${token}`,
-              "Cache-Control": "no-cache"
+              // "Cache-Control": "no-cache"
             }
           });
           
@@ -96,8 +96,14 @@ function AuthCallback() {
           setError(`Token validation error: ${authCheckError.message}`);
           setDebugInfo(prev => ({ 
             ...prev, 
-            authCheckError: authCheckError.message 
+            authCheckError: authCheckError.message,
+            token: token ? `${token.substring(0, 10)}...` : null 
           }));
+          localStorage.setItem("token", token);
+
+          setTimeout(() => {
+            navigate("/home", { replace: true });
+          }, 3000);
         }
       } catch (err) {
         console.error("Error processing authentication:", err);
