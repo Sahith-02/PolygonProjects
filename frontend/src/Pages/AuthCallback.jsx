@@ -19,6 +19,11 @@ function AuthCallback() {
         const params = new URLSearchParams(location.search);
         const token = params.get("token");
         
+        // Log detailed debug info
+        console.log("URL search params:", location.search);
+        console.log("Token found:", !!token);
+        if (token) console.log("Token length:", token.length);
+        
         setDebugInfo(prev => ({ ...prev, 
           searchParams: location.search,
           hasToken: !!token,
@@ -32,26 +37,41 @@ function AuthCallback() {
           return;
         }
 
-        console.log("Token received, length:", token.length);
+        // Validate token format before storing
+        try {
+          // Simple JWT validation - make sure it has 3 parts
+          const parts = token.split('.');
+          if (parts.length !== 3) {
+            throw new Error("Invalid token format");
+          }
+        } catch (tokenErr) {
+          console.error("Invalid token format:", tokenErr);
+          setError("Authentication failed: Invalid token format");
+          setProcessing(false);
+          return;
+        }
         
         // Store token in localStorage
         localStorage.setItem("token", token);
         
         // Trigger storage event to notify other tabs/components
-        const storageEvent = new Event('storage');
-        storageEvent.key = 'token';
-        storageEvent.newValue = token;
-        window.dispatchEvent(storageEvent);
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'token',
+          newValue: token
+        }));
         
         try {
-          // Verify token is valid
+          // Verify token is valid with backend
           const response = await fetch(`${API_BASE}/api/check-auth`, {
             headers: { 
               Authorization: `Bearer ${token}`,
               "Cache-Control": "no-cache"
-            },
-            credentials: "include"
+            }
           });
+          
+          if (!response.ok) {
+            throw new Error(`Token validation failed: Server returned ${response.status}`);
+          }
           
           const data = await response.json();
           console.log("Auth check response:", data);
@@ -65,31 +85,33 @@ function AuthCallback() {
           if (!data.authenticated) {
             throw new Error("Token validation failed: User not authenticated");
           }
+          
+          // Add a small delay to ensure state updates
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Use React Router's navigate for a smooth transition
+          navigate("/home", { replace: true });
         } catch (authCheckError) {
           console.error("Auth check failed:", authCheckError);
+          setError(`Token validation error: ${authCheckError.message}`);
           setDebugInfo(prev => ({ 
             ...prev, 
             authCheckError: authCheckError.message 
           }));
         }
-        
-        // Small delay to ensure state updates
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Instead of using window.location which causes a full page reload,
-        // use React Router's navigate function for a smoother transition
-        navigate("/home", { replace: true });
-        setProcessing(false);
       } catch (err) {
         console.error("Error processing authentication:", err);
         setError(`Authentication error: ${err.message}`);
+      } finally {
         setProcessing(false);
       }
     };
 
+    // Process token immediately on component mount
     processToken();
   }, [navigate, location, API_BASE]);
 
+  // Render a more descriptive loading/error UI
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">

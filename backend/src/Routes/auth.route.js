@@ -5,69 +5,32 @@ import { Strategy as SamlStrategy } from "passport-saml";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { config } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
 
-// Environment variables - ensure these match exactly with OneLogin configuration
-const JWT_SECRET = "PolygonGeospatial@10";
-const SAML_CALLBACK_URL =
-  "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback";
-const SAML_ENTRY_POINT =
-  "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4";
-const SAML_ISSUER =
-  "https://app.onelogin.com/saml/metadata/247a0219-6e0e-4d42-9efe-982727b9d9f4";
-
-// The certificate from OneLogin exactly as provided
-const SAML_CERT = `-----BEGIN CERTIFICATE-----
-MIID6DCCAtCgAwIBAgIUCptxODq6booyevMhXoQw0YXgQvkwDQYJKoZIhvcNAQEF
-BQAwSTEUMBIGA1UECgwLdm5ydmppZXQuaW4xFTATBgNVBAsMDE9uZUxvZ2luIElk
-UDEaMBgGA1UEAwwRT25lTG9naW4gQWNjb3VudCAwHhcNMjUwNDExMDYzMTQ3WhcN
-MzAwNDExMDYzMTQ3WjBJMRQwEgYDVQQKDAt2bnJ2amlldC5pbjEVMBMGA1UECwwM
-T25lTG9naW4gSWRQMRowGAYDVQQDDBFPbmVMb2dpbiBBY2NvdW50IDCCASIwDQYJ
-KoZIhvcNAQEBBQADggEPADCCAQoCggEBAKEAsd3pASIWblyV1QOig9cdS+oumZ21
-U4EuApcSGEcQgzeAVoy4z5QY0B/U+06OK+VbtRos3yHoiL80bzCFMuSv8lWB44rt
-AwJw3p2j0hQxTieOls7A0PhBXDley2NoArqaprE1prXnnfAf19JoK5NCeRk/dN/+
-hBBTQOYaoWWgdpJT8XF8mQfAaeLIOqxQ++74ZHe9fGSlJwW35K0R+uKEua5OdrVS
-jDvfdtbXIAT2png7Bdc2VT5gaf0s4RtEsS6dpFTPr9Bpj4eOTBroU+meZ2mefhkp
-TGaWiM6grLgalCDBN3R79RQ2v4N0ZMnhYR3121eMilDEMCOCAimaBlkCAwEAAaOB
-xzCBxDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBSc9C4HdMHJpluHAucuvu4GCyzV
-lTCBhAYDVR0jBH0we4AUnPQuB3TByaZbhwLnLr7uBgss1ZWhTaRLMEkxFDASBgNV
-BAoMC3ZucnZqaWV0LmluMRUwEwYDVQQLDAxPbmVMb2dpbiBJZFAxGjAYBgNVBAMM
-EU9uZUxvZ2luIEFjY291bnQgghQKm3E4OrpuijJ68yFehDDRheBC+TAOBgNVHQ8B
-Af8EBAMCB4AwDQYJKoZIhvcNAQEFBQADggEBAFHLRs0lI8qNrx/x42jwmLGLv5TR
-IIimDl9tClFfZHiubAAeZi+JhghpSQ7+fVWpOuJNTQr+50wUOUusBw71up4WE4Tc
-y7Ji9C7Myr7FcLCEoqli5ovj0U9kUpUQKAhqPVUgftuvE2YKCBQK3IqSah1Bx4SH
-irFYhqJUa7/tyFKv4BAXfnz94eqYBTYiRLjPX/OoEl1O0OeZ8W8DbgTuQtOlEd1a
-ejA9oXNr6cB+nqMq4G9UDPWbKuerMEITAL0SoxkKLNgq/MuGsxOIrmP3dB0g1oWq
-BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
------END CERTIFICATE-----`;
-
-// Fallback for local development
-const USERS = [{ username: "admin", password: "admin1" }];
-
-// Configure Passport SAML Strategy with updated parameters
+// Configure Passport SAML Strategy using values from config.js
 passport.use(
   new SamlStrategy(
     {
-      callbackUrl: SAML_CALLBACK_URL,
-      entryPoint: SAML_ENTRY_POINT,
-      issuer: SAML_ISSUER,
-      cert: SAML_CERT,
-      disableRequestedAuthnContext: true,
-      audience: "https://geospatial-ap-backend.onrender.com",
-      // Match OneLogin configuration - Using SHA-1
-      signatureAlgorithm: "sha1",
-      digestAlgorithm: "sha1",
-      identifierFormat: null,
-      acceptedClockSkewMs: 300000, // 5 minutes clock skew
-      validateInResponseTo: false,
-      wantAuthnResponseSigned: false,
-      wantAssertionsSigned: false,
-      authnRequestBinding: "HTTP-POST",
-      decryptionPvk: null,
-      privateKey: null,
-      forceAuthn: false,
+      callbackUrl: config.SAML.callbackUrl,
+      entryPoint: config.SAML.entryPoint,
+      issuer: config.SAML.issuer,
+      cert: config.SAML.cert,
+      disableRequestedAuthnContext: config.SAML.disableRequestedAuthnContext,
+      audience: config.SAML.audience,
+      signatureAlgorithm: config.SAML.signatureAlgorithm,
+      digestAlgorithm: config.SAML.digestAlgorithm,
+      identifierFormat: config.SAML.identifierFormat,
+      acceptedClockSkewMs: config.SAML.acceptedClockSkewMs,
+      validateInResponseTo: config.SAML.validateInResponseTo,
+      wantAuthnResponseSigned: config.SAML.wantAssertionsSigned,
+      wantAssertionsSigned: config.SAML.wantAssertionsSigned,
+      authnRequestBinding: config.SAML.authnRequestBinding,
+      decryptionPvk: config.SAML.decryptionPvk,
+      privateKey: config.SAML.privateKey,
+      forceAuthn: config.SAML.forceAuthn,
     },
     (profile, done) => {
       // Log the profile for debugging
@@ -90,6 +53,9 @@ passport.use(
     }
   )
 );
+
+// Fallback for local development
+const USERS = [{ username: "admin", password: "admin1" }];
 
 // Passport session setup
 passport.serializeUser((user, done) => {
@@ -117,7 +83,7 @@ router.post("/login", (req, res) => {
 
   if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-  const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "10h" });
+  const token = jwt.sign({ username }, config.JWT_SECRET, { expiresIn: "10h" });
 
   res.json({ token });
 });
@@ -140,27 +106,23 @@ router.get(
   })
 );
 
-// SAML callback endpoint with enhanced error handling
+// SAML callback endpoint with enhanced error handling and debugging
 router.post(
   "/auth/saml/callback",
   (req, res, next) => {
     // Enhanced debug logging for SAML callback
     console.log(
-      "Router SAML callback received with body keys:",
+      "SAML callback received with body keys:",
       Object.keys(req.body || {})
     );
 
     if (req.body && req.body.SAMLResponse) {
-      console.log("Router SAML Response length:", req.body.SAMLResponse.length);
-      console.log(
-        "Router SAML Response start:",
-        req.body.SAMLResponse.substring(0, 100) + "..."
-      );
-
-      // Log content type to ensure proper parsing
-      console.log("Router Content-Type:", req.headers["content-type"]);
+      console.log("SAML Response length:", req.body.SAMLResponse.length);
+      // Additional debug info
+      console.log("Content-Type:", req.headers["content-type"]);
+      console.log("Accept header:", req.headers["accept"]);
     } else {
-      console.log("Router - No SAMLResponse in body");
+      console.log("No SAMLResponse in body");
     }
     next();
   },
@@ -170,7 +132,7 @@ router.post(
   }),
   (req, res) => {
     // Generate JWT token from SAML profile
-    console.log("Router SAML auth successful, user:", req.user);
+    console.log("SAML auth successful, user:", req.user);
 
     try {
       if (!req.user) {
@@ -183,15 +145,20 @@ router.post(
           email: req.user.email,
           name: req.user.displayName,
         },
-        JWT_SECRET,
+        config.JWT_SECRET,
         { expiresIn: "10h" }
       );
 
       // Get redirect URL from session or use default
-      const returnTo =
+      let returnTo =
         req.session.returnTo ||
         "https://geospatial-ap-frontend.onrender.com/auth-callback";
       delete req.session.returnTo;
+
+      // Ensure returnTo is properly formatted
+      if (!returnTo.includes("http")) {
+        returnTo = `https://geospatial-ap-frontend.onrender.com${returnTo}`;
+      }
 
       // Make sure token is properly URL encoded
       const encodedToken = encodeURIComponent(token);
@@ -204,7 +171,7 @@ router.post(
       res.setHeader("Access-Control-Allow-Credentials", "true");
 
       // Perform redirect
-      res.redirect(redirectUrl);
+      res.redirect(303, redirectUrl);
     } catch (error) {
       console.error("JWT token generation error:", error);
       res.redirect("/api/auth/error?reason=token_generation_failed");
@@ -240,7 +207,7 @@ router.get("/check-auth", (req, res) => {
     const token = authHeader.split(" ")[1];
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, config.JWT_SECRET);
       return res.json({ authenticated: true, user: decoded });
     } catch (err) {
       console.error("JWT verification failed:", err.message);

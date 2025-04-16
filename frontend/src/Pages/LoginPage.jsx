@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import "../styles/LoginPageCss.css";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import AuthDebugHelper from "./AuthDebugHelper";
 
 export default function LoginPage({ onLogin, authError }) {
   const [username, setUsername] = useState("");
@@ -107,6 +108,7 @@ export default function LoginPage({ onLogin, authError }) {
 
   return (
     <div className="container">
+       <AuthDebugHelper />
       <div className="left">
         <img src="/andhraPradesh.png" alt="AP Logo" />
       </div>

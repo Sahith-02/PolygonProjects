@@ -30,21 +30,20 @@ function App() {
         setLoading(false);
         return false;
       }
-
+  
       console.log("Token found, validating with server...");
       
       const res = await fetch(`${API_BASE}/api/check-auth`, {
         headers: { 
           Authorization: `Bearer ${token}`,
           "Cache-Control": "no-cache"
-        },
-        credentials: "include",
+        }
       });
-
+  
       if (!res.ok) {
         throw new Error(`Server returned ${res.status}: ${res.statusText}`);
       }
-
+  
       const data = await res.json();
       console.log("Auth check response:", data);
       
@@ -54,7 +53,7 @@ function App() {
         console.log("User authenticated successfully:", data.user);
         return true;
       } else {
-        console.log("Token invalid, removing from localStorage");
+        console.log("Token invalid or expired, removing from localStorage");
         localStorage.removeItem("token");
         setAuthError("Authentication expired or invalid");
         setAuthenticated(false);
@@ -64,7 +63,11 @@ function App() {
     } catch (err) {
       console.error("Auth check failed:", err);
       setAuthError(err.message);
-      localStorage.removeItem("token");
+      // Only remove token if there's a clear authentication error,
+      // not for network errors which might be temporary
+      if (err.message.includes("Authentication") || err.message.includes("token")) {
+        localStorage.removeItem("token");
+      }
       setAuthenticated(false);
       setUser(null);
       return false;
@@ -72,7 +75,6 @@ function App() {
       setLoading(false);
     }
   }, [API_BASE]);
-
   useEffect(() => {
     const path = window.location.pathname;
 
