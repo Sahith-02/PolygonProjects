@@ -10,6 +10,7 @@ export default function LoginPage({ onLogin }) {
   const [ssoLoading, setSsoLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState(null);
 
+  
   const API_BASE = import.meta.env.VITE_API_BASE || "https://geospatial-ap-backend.onrender.com";
 
   useEffect(() => {
