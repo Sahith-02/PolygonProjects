@@ -23,6 +23,7 @@ export default function LoginPage({ onLogin, authError }) {
         const res = await fetch(`${API_BASE}/api/status`, {
           method: "GET",
           credentials: "include",
+          cache: "no-cache" // Prevent caching
         });
         const data = await res.json();
         setApiStatus({ status: "online", data });
@@ -33,6 +34,7 @@ export default function LoginPage({ onLogin, authError }) {
           error: err.message,
         });
         console.error("API Status check failed:", err);
+        toast.error(`API is offline: ${err.message}`);
       }
     };
 
@@ -60,6 +62,13 @@ export default function LoginPage({ onLogin, authError }) {
 
       const data = await res.json();
       localStorage.setItem("token", data.token);
+      
+      // Manually dispatch storage event to notify other components
+      const storageEvent = new Event('storage');
+      storageEvent.key = 'token';
+      storageEvent.newValue = data.token;
+      window.dispatchEvent(storageEvent);
+      
       toast.success("Login successful!");
       setTimeout(() => onLogin(), 1000);
     } catch (err) {
@@ -75,7 +84,7 @@ export default function LoginPage({ onLogin, authError }) {
     // Clear any existing token before starting SSO
     localStorage.removeItem("token");
     
-    // Generate a full absolute URL for the returnTo parameter
+    // Construct the full absolute URL for the returnTo parameter
     const origin = window.location.origin;
     const returnTo = encodeURIComponent(`${origin}/auth-callback`);
     
@@ -85,6 +94,12 @@ export default function LoginPage({ onLogin, authError }) {
     // Log the SSO URL for debugging
     const samlUrl = `${API_BASE}/api/auth/saml?returnTo=${returnTo}&t=${timestamp}`;
     console.log("Redirecting to SSO URL:", samlUrl);
+    
+    // Set a timeout to reset the loading state if redirection fails
+    const timeoutId = setTimeout(() => {
+      setSsoLoading(false);
+      toast.error("SSO redirection timed out. Please try again.");
+    }, 10000); // 10 seconds timeout
     
     // Redirect to SAML login page
     window.location.href = samlUrl;
@@ -116,6 +131,7 @@ export default function LoginPage({ onLogin, authError }) {
           <label htmlFor="username">Username</label>
           <input
             type="text"
+            id="username"
             value={username}
             autoComplete="username"
             onChange={(e) => setUsername(e.target.value)}
@@ -125,6 +141,7 @@ export default function LoginPage({ onLogin, authError }) {
           <label htmlFor="password">Password</label>
           <input
             type="password"
+            id="password"
             value={password}
             autoComplete="current-password"
             onChange={(e) => setPassword(e.target.value)}

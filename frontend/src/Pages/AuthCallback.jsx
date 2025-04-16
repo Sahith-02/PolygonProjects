@@ -37,6 +37,12 @@ function AuthCallback() {
         // Store token in localStorage
         localStorage.setItem("token", token);
         
+        // Trigger storage event to notify other tabs/components
+        const storageEvent = new Event('storage');
+        storageEvent.key = 'token';
+        storageEvent.newValue = token;
+        window.dispatchEvent(storageEvent);
+        
         try {
           // Verify token is valid
           const response = await fetch(`${API_BASE}/api/check-auth`, {
@@ -61,7 +67,6 @@ function AuthCallback() {
           }
         } catch (authCheckError) {
           console.error("Auth check failed:", authCheckError);
-          // Don't throw error here, continue with token we have
           setDebugInfo(prev => ({ 
             ...prev, 
             authCheckError: authCheckError.message 
@@ -69,11 +74,12 @@ function AuthCallback() {
         }
         
         // Small delay to ensure state updates
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Force a reload of the app to ensure authentication state is updated
-        // This is important because the App component may have already decided user is not authenticated
-        window.location.href = "/home";
+        // Instead of using window.location which causes a full page reload,
+        // use React Router's navigate function for a smoother transition
+        navigate("/home", { replace: true });
+        setProcessing(false);
       } catch (err) {
         console.error("Error processing authentication:", err);
         setError(`Authentication error: ${err.message}`);
@@ -86,7 +92,7 @@ function AuthCallback() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen">
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md">
           <h2 className="text-lg font-semibold mb-2">Authentication Error</h2>
           <p>{error}</p>
@@ -107,7 +113,7 @@ function AuthCallback() {
   }
 
   return (
-    <div className="flex items-center justify-center h-screen">
+    <div className="flex items-center justify-center min-h-screen p-4">
       <div className="text-center">
         <h2 className="text-xl font-semibold">Completing login...</h2>
         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mt-4 mx-auto" />

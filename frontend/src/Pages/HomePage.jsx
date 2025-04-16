@@ -6,6 +6,7 @@ import RecordDetails from "../components/Records";
 import "../styles/HomePage.css";
 import ToolBar from "../components/ToolBar";
 import Search from "../components/Search";
+import AuthDebugHelper from "./AuthDebugHelper";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
 
@@ -105,6 +106,7 @@ export default function HomePage({ onLogout }) {
 
   return (
     <div className="app-container">
+       <AuthDebugHelper />
       <Navbar onLogout={handleLogout} />
       <div className="map-container">
         <div
@@ -176,6 +178,7 @@ export default function HomePage({ onLogout }) {
         </div>
 
         <ToolBar setActiveTool={setActiveTool} />
+       
       </div>
     </div>
   );

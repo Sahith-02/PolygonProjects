@@ -4,7 +4,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
 import AuthCallback from "./Pages/AuthCallback";
@@ -15,80 +15,111 @@ function App() {
   const [authenticated, setAuthenticated] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
+  const [user, setUser] = useState(null);
+
+  // Create a reusable auth checking function
+  const checkAuth = useCallback(async () => {
+    try {
+      console.log("Checking authentication status...");
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        console.log("No token found in localStorage");
+        setAuthenticated(false);
+        setUser(null);
+        setLoading(false);
+        return false;
+      }
+
+      console.log("Token found, validating with server...");
+      
+      const res = await fetch(`${API_BASE}/api/check-auth`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Cache-Control": "no-cache"
+        },
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      console.log("Auth check response:", data);
+      
+      if (data.authenticated && data.user) {
+        setUser(data.user);
+        setAuthenticated(true);
+        console.log("User authenticated successfully:", data.user);
+        return true;
+      } else {
+        console.log("Token invalid, removing from localStorage");
+        localStorage.removeItem("token");
+        setAuthError("Authentication expired or invalid");
+        setAuthenticated(false);
+        setUser(null);
+        return false;
+      }
+    } catch (err) {
+      console.error("Auth check failed:", err);
+      setAuthError(err.message);
+      localStorage.removeItem("token");
+      setAuthenticated(false);
+      setUser(null);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [API_BASE]);
 
   useEffect(() => {
     const path = window.location.pathname;
 
     // Skip auth check if we're on the callback page to avoid redirect loops
     if (path === "/auth-callback") {
-      console.log("On auth-callback page, skipping auth check");
+      console.log("On auth-callback page, skipping initial auth check");
       setLoading(false);
       return;
     }
 
-    const checkAuth = async () => {
-      try {
-        console.log("Checking authentication status...");
-        const token = localStorage.getItem("token");
-        
-        if (!token) {
-          console.log("No token found in localStorage");
-          setAuthenticated(false);
-          setLoading(false);
-          return;
-        }
-
-        console.log("Token found, validating with server...");
-        
-        const res = await fetch(`${API_BASE}/api/check-auth`, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            "Cache-Control": "no-cache"  // Prevent caching of auth responses
-          },
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          throw new Error(`Server returned ${res.status}: ${res.statusText}`);
-        }
-
-        const data = await res.json();
-        console.log("Auth check response:", data);
-        
-        setAuthenticated(data.authenticated);
-        
-        if (!data.authenticated) {
-          console.log("Token invalid, removing from localStorage");
-          localStorage.removeItem("token");
-          setAuthError("Authentication expired or invalid");
-        } else {
-          console.log("User authenticated successfully");
-        }
-      } catch (err) {
-        console.error("Auth check failed:", err);
-        setAuthError(err.message);
-        localStorage.removeItem("token");
-        setAuthenticated(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     checkAuth();
-  }, []);
+  }, [checkAuth]);
 
-  // Force re-check of authentication when local storage changes
+  // Listen for token changes
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'token') {
         console.log("Token changed in storage, updating auth state");
-        window.location.reload();
+        checkAuth();
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  }, [checkAuth]);
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        await fetch(`${API_BASE}/api/logout`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+      }
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      localStorage.removeItem("token");
+      setAuthenticated(false);
+      setUser(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -117,23 +148,23 @@ function App() {
             )
           }
         />
-        <Route path="/auth-callback" element={<AuthCallback />} />
+        <Route 
+          path="/auth-callback" 
+          element={<AuthCallback />} 
+        />
         <Route
           path="/home"
           element={
             authenticated ? (
               <HomePage
-                onLogout={() => {
-                  localStorage.removeItem("token");
-                  setAuthenticated(false);
-                }}
+                user={user}
+                onLogout={handleLogout}
               />
             ) : (
               <Navigate to="/" replace />
             )
           }
         />
-        
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
