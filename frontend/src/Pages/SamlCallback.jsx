@@ -10,19 +10,38 @@ export default function SamlCallback() {
   useEffect(() => {
     console.log("SamlCallback component mounted");
     const token = searchParams.get("token");
-    const error = searchParams.get("error");
+    const errorParam = searchParams.get("error");
     console.log("Token present:", !!token);
-    console.log("Error present:", !!error);
+    console.log("Error present:", !!errorParam);
   
+    if (errorParam) {
+      setError(errorParam);
+      setLoading(false);
+      // Redirect to login page after 5 seconds if there's an error
+      setTimeout(() => {
+        navigate("/?error=saml");
+      }, 5000);
+      return;
+    }
+    
     if (token) {
       console.log("Storing token and navigating to home");
       localStorage.setItem("token", token);
       
       // Add a small delay to ensure localStorage is updated
       setTimeout(() => {
+        setLoading(false);
         navigate("/home");
         console.log("Navigation to /home attempted");
-      }, 100);
+      }, 500);
+    } else {
+      // No token found in URL params
+      setError("No authentication token received");
+      setLoading(false);
+      // Redirect to login page after 5 seconds
+      setTimeout(() => {
+        navigate("/?error=saml");
+      }, 5000);
     }
   }, [searchParams, navigate]);
   

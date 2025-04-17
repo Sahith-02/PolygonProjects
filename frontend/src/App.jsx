@@ -19,22 +19,32 @@ function App() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     console.log("Auth check - token exists:", !!token);
+    
     if (!token) {
+      console.log("No token found in localStorage, setting authenticated=false");
       setAuthenticated(false);
       return;
     }
+    
     if (window.innerWidth < 1024) {
       setAllowed(false);
     }
 
+    console.log("Checking authentication with API...");
     fetch(`${API_BASE}/api/check-auth`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     })
       .then((res) => res.json())
-      .then((data) => setAuthenticated(data.authenticated))
-      .catch(() => setAuthenticated(false));
+      .then((data) => {
+        console.log("Auth check response:", data);
+        setAuthenticated(data.authenticated);
+      })
+      .catch((err) => {
+        console.error("Auth check error:", err);
+        setAuthenticated(false);
+      });
   }, []);
   
   if (!allowed) {
@@ -53,8 +63,26 @@ function App() {
     );
   }
 
-  if (authenticated === null) return <p>Loading...</p>;
+  // Show loading state with more details
+  if (authenticated === null) {
+    return (
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        flexDirection: "column"
+      }}>
+        <p>Loading authentication state...</p>
+        <p style={{ fontSize: "14px", color: "#666" }}>
+          If you continue to see this screen, please try refreshing the page.
+        </p>
+      </div>
+    );
+  }
 
+  console.log("Rendering routes with authenticated =", authenticated);
+  
   return (
     <Router>
       <Routes>
@@ -81,7 +109,7 @@ function App() {
             )
           }
         />
-        {/* Add SAML callback route */}
+        {/* Make SAML callback available regardless of auth state */}
         <Route path="/saml/callback" element={<SamlCallback />} />
       </Routes>
     </Router>
