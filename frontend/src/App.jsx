@@ -18,6 +18,7 @@ function App() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    console.log("Auth check - token exists:", !!token);
     if (!token) {
       setAuthenticated(false);
       return;

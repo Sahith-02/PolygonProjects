@@ -43,14 +43,16 @@ app.use(express.urlencoded({ extended: true })); // Important for SAML POST resp
 
 // Add session support for SAML (needed in production)
 if (IS_PRODUCTION) {
+  // Update your session configuration
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "saml-session-secret",
       resave: false,
       saveUninitialized: true,
       cookie: {
-        secure: false, // Set to false to work with HTTP
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        secure: IS_PRODUCTION, // true in production if using HTTPS
+        sameSite: "none", // Add this line to allow cross-site cookies
+        maxAge: 24 * 60 * 60 * 1000,
       },
     })
   );
