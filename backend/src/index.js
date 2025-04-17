@@ -21,44 +21,21 @@ const allowedOrigins = [
 ];
 
 // Configure CORS with proper settings for SAML
-// app.use(
-//   cors({
-//     origin: function (origin, callback) {
-//       // Allow requests with no origin (like mobile apps or curl requests)
-//       if (!origin) return callback(null, true);
-//       if (allowedOrigins.indexOf(origin) === -1) {
-//         console.log("Origin rejected by CORS:", origin);
-//         return callback(null, true); // Allow all origins in production for SAML
-//       }
-//       return callback(null, true);
-//     },
-//     credentials: true,
-//     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-//     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-//     secure:true,
-//   })
-// );
-
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow all origins for SAML flow
-      if (
-        !origin ||
-        origin.includes("onelogin.com") ||
-        origin.includes("render.com")
-      ) {
-        return callback(null, true);
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        console.log("Origin rejected by CORS:", origin);
+        return callback(null, true); // Allow all origins in production for SAML
       }
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        return callback(null, true);
-      }
-      callback(new Error("Not allowed by CORS"));
+      return callback(null, true);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-    preflightContinue: true,
+    secure:true,
   })
 );
 
@@ -68,33 +45,19 @@ app.use(express.urlencoded({ extended: true })); // Important for SAML POST resp
 // Add session support for SAML (needed in production)
 if (IS_PRODUCTION) {
   // Update your session configuration
-  // app.use(
-  //   session({
-  //     secret: process.env.SESSION_SECRET || "saml-session-secret",
-  //     resave: false,
-  //     saveUninitialized: true,
-  //     cookie: {
-  //       secure: IS_PRODUCTION, // true in production if using HTTPS
-  //       sameSite: "none", // Add this line to allow cross-site cookies
-  //       maxAge: 24 * 60 * 60 * 1000,
-  //     },
-  //   })
-  // );
-
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "saml-session-secret",
       resave: false,
       saveUninitialized: true,
       cookie: {
-        secure: IS_PRODUCTION,
-        sameSite: IS_PRODUCTION ? "none" : "lax",
+        secure: IS_PRODUCTION, // true in production if using HTTPS
+        sameSite: "none", // Add this line to allow cross-site cookies
         maxAge: 24 * 60 * 60 * 1000,
-        domain: IS_PRODUCTION ? ".render.com" : undefined,
       },
     })
   );
-  
+
   // Initialize passport for SAML
   app.use(passport.initialize());
   app.use(passport.session());
