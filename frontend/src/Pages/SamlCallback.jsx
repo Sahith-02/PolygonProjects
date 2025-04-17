@@ -14,6 +14,8 @@ export default function SamlCallback() {
       const error = searchParams.get("error");
       const errorMsg = searchParams.get("message");
       
+      console.log("SAML Callback - Token present:", !!token);
+      
       // Store debug info
       setDebugInfo({
         hasToken: !!token,
@@ -33,16 +35,29 @@ export default function SamlCallback() {
       if (token) {
         // Store the token and redirect to home
         try {
-          localStorage.setItem("token", token);
-          console.log("Token stored successfully");
-          localStorage.setItem("force_auth", "true");
-          setLoading(false);
-          // Instead of navigating immediately, show success for a moment
+          // Clear existing token first
+          localStorage.removeItem("token");
+          
+          // Add a small delay before setting the token
           setTimeout(() => {
-            navigate("/home");
-          }, 1000);
+            try {
+              localStorage.setItem("token", token);
+              console.log("Token stored successfully:", token.substring(0, 10) + "...");
+              
+              // Force auth flag to bypass token verification
+              localStorage.setItem("force_auth", "true");
+              
+              // Reload the page instead of navigating to ensure App.jsx re-checks auth
+              window.location.href = "/home";
+            } catch (innerErr) {
+              console.error("Inner token storage error:", innerErr);
+              setError("Error storing token (inner): " + innerErr.message);
+              setLoading(false);
+            }
+          }, 300);
         } catch (e) {
-          setError("Error storing token: " + e.message);
+          console.error("Outer token storage error:", e);
+          setError("Error storing token (outer): " + e.message);
           setLoading(false);
         }
       } else {
@@ -87,4 +102,4 @@ export default function SamlCallback() {
         )}
       </div>
     );
-  }
+}
