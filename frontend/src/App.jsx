@@ -7,8 +7,10 @@ import {
 import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
+import SamlCallback from "./Pages/SamlCallback";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
+const IS_PRODUCTION = import.meta.env.MODE === "production";
 
 function App() {
   const [authenticated, setAuthenticated] = useState(null);
@@ -33,6 +35,7 @@ function App() {
       .then((data) => setAuthenticated(data.authenticated))
       .catch(() => setAuthenticated(false));
   }, []);
+  
   if (!allowed) {
     return (
       <div
@@ -60,7 +63,10 @@ function App() {
             authenticated ? (
               <Navigate to="/home" />
             ) : (
-              <LoginPage onLogin={() => setAuthenticated(true)} />
+              <LoginPage 
+                onLogin={() => setAuthenticated(true)} 
+                useSaml={IS_PRODUCTION}
+              />
             )
           }
         />
@@ -74,6 +80,8 @@ function App() {
             )
           }
         />
+        {/* Add SAML callback route */}
+        <Route path="/saml/callback" element={<SamlCallback />} />
       </Routes>
     </Router>
   );
