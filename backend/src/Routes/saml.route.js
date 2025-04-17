@@ -40,30 +40,37 @@ ejA9oXNr6cB+nqMq4G9UDPWbKuerMEITAL0SoxkKLNgq/MuGsxOIrmP3dB0g1oWq
 BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 -----END CERTIFICATE-----`;
 
-  // SAML Strategy configuration
-  const samlStrategy = new SamlStrategy(
-    {
-      callbackUrl:
-        "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
-      entryPoint:
-        "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4",
-      issuer: "https://geospatial-ap-backend.onrender.com",
-      cert: cert,
-      identifierFormat:
-        "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
-      validateInResponseTo: false,
-      disableRequestedAuthnContext: true,
-    },
-    (profile, done) => {
-      // This function is called after successful SAML auth
-      return done(null, {
-        username: profile.nameID || profile.email || "samluser",
-        email: profile.email,
-        id: profile.nameID,
-        samlUser: true,
-      });
-    }
-  );
+  // Create SAML strategy with better debugging
+  const samlOptions = {
+    callbackUrl:
+      "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
+    entryPoint:
+      "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4",
+    issuer: "https://geospatial-ap-backend.onrender.com",
+    cert: cert,
+    identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+    validateInResponseTo: false,
+    disableRequestedAuthnContext: true,
+    acceptedClockSkewMs: 5000, // Allow for clock skew between IdP and SP
+    forceAuthn: false,
+    passive: false,
+  };
+
+  console.log("SAML Strategy options:", JSON.stringify(samlOptions, null, 2));
+
+  const samlStrategy = new SamlStrategy(samlOptions, (profile, done) => {
+    console.log(
+      "SAML Authentication success, profile:",
+      JSON.stringify(profile, null, 2)
+    );
+    // This function is called after successful SAML auth
+    return done(null, {
+      username: profile.nameID || profile.email || "samluser",
+      email: profile.email,
+      id: profile.nameID,
+      samlUser: true,
+    });
+  });
 
   // Configure Passport
   passport.use(samlStrategy);
@@ -78,24 +85,39 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 
   // Routes for SAML authentication
   router.get("/api/auth/saml", (req, res, next) => {
+    console.log("Starting SAML authentication redirect");
     passport.authenticate("saml", {
       successRedirect: "/",
       failureRedirect: "/api/auth/saml/failure",
     })(req, res, next);
   });
 
+  // Debug middleware for SAML callback
+  router.use("/api/auth/saml/callback", (req, res, next) => {
+    console.log("SAML Callback received:");
+    console.log("Body:", req.body);
+    console.log("Headers:", req.headers);
+    next();
+  });
+
   router.post("/api/auth/saml/callback", (req, res, next) => {
-    passport.authenticate("saml", (err, user) => {
+    console.log("Processing SAML callback");
+
+    passport.authenticate("saml", (err, user, info) => {
+      console.log("SAML authenticate callback triggered");
+
       if (err) {
         console.error("SAML Auth Error:", err);
         return res.redirect(
-          "https://geospatial-ap-frontend.onrender.com/login?error=saml"
+          "https://geospatial-ap-frontend.onrender.com/?error=saml&message=" +
+            encodeURIComponent(err.message)
         );
       }
 
       if (!user) {
+        console.error("No user from SAML:", info);
         return res.redirect(
-          "https://geospatial-ap-frontend.onrender.com/login?error=nouser"
+          "https://geospatial-ap-frontend.onrender.com/?error=nouser"
         );
       }
 
@@ -103,6 +125,7 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
       const token = jwt.sign({ username: user.username }, JWT_SECRET, {
         expiresIn: "10h",
       });
+      console.log("Generated token for user:", user.username);
 
       // Redirect to frontend with token
       res.redirect(
@@ -112,21 +135,36 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
   });
 
   router.get("/api/auth/saml/metadata", (req, res) => {
-    res.type("application/xml");
-    res.send(samlStrategy.generateServiceProviderMetadata());
+    try {
+      res.type("application/xml");
+      const metadata = samlStrategy.generateServiceProviderMetadata();
+      console.log("Generated SAML metadata");
+      res.send(metadata);
+    } catch (err) {
+      console.error("Error generating metadata:", err);
+      res.status(500).send("Error generating metadata");
+    }
   });
 
   router.get("/api/auth/saml/failure", (req, res) => {
-    res.redirect(
-      "https://geospatial-ap-frontend.onrender.com/login?error=saml"
-    );
+    console.log("SAML authentication failed");
+    res.redirect("https://geospatial-ap-frontend.onrender.com/?error=saml");
   });
 
   // SAML logout
   router.get("/api/auth/saml/logout", (req, res) => {
+    console.log("SAML logout requested");
     res.redirect(
       "https://polygongeospatial.onelogin.com/trust/saml2/http-redirect/slo/3865085"
     );
+  });
+} else {
+  // In development mode, just add a debug endpoint
+  router.get("/api/auth/saml", (req, res) => {
+    res.status(200).json({
+      message: "SAML auth is disabled in development mode",
+      info: "Use username/password login instead",
+    });
   });
 }
 

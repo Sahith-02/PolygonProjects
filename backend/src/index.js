@@ -12,34 +12,46 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
+// Define allowed origins
 const allowedOrigins = [
   "https://geospatial-ap-frontend.onrender.com",
   "http://localhost:5173",
+  "https://polygongeospatial.onelogin.com",
+  "https://app.onelogin.com",
 ];
 
+// Configure CORS with proper settings for SAML
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        console.log("Origin rejected by CORS:", origin);
+        return callback(null, true); // Allow all origins in production for SAML
       }
+      return callback(null, true);
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Important for SAML POST responses
 
-// Add session support for SAML (only needed in production)
+// Add session support for SAML (needed in production)
 if (IS_PRODUCTION) {
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "saml-session-secret",
       resave: false,
       saveUninitialized: true,
-      cookie: { secure: true },
+      cookie: {
+        secure: false, // Set to false to work with HTTP
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      },
     })
   );
 
@@ -51,6 +63,16 @@ if (IS_PRODUCTION) {
 app.use("/api", tileRoutes);
 app.use("/", authRoutes);
 app.use("/", samlRoutes); // Add SAML routes
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error("Error:", err.stack);
+  res.status(500).json({
+    error: "Internal Server Error",
+    message: err.message,
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+  });
+});
 
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
