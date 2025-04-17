@@ -8,7 +8,9 @@ export default function SamlCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("SamlCallback mounted, params:", searchParams.toString());
     const token = searchParams.get("token");
+    console.log("Token found:", token ? "Yes (length: " + token.length + ")" : "No");
     const error = searchParams.get("error");
     const errorMsg = searchParams.get("message");
 
