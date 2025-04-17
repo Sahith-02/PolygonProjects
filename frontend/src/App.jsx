@@ -3,95 +3,87 @@ import {
   Routes,
   Route,
   Navigate,
-  useLocation,
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
 import SamlCallback from "./Pages/SamlCallback";
+import TokenDebugPage from "./Pages/TokenDebugPage"; // Add this new import
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
 const IS_PRODUCTION = import.meta.env.MODE === "production";
 
-// Helper function to get token from multiple storage locations
-const getStoredToken = () => {
-  // Check window object first (temporary storage)
-  if (window.authToken) {
-    console.log("Found token in window object");
-    return window.authToken;
-  }
-  
-  // Check localStorage
-  const localToken = localStorage.getItem("token");
-  if (localToken) {
-    console.log("Found token in localStorage");
-    return localToken;
-  }
-  
-  // Check sessionStorage
-  const sessionToken = sessionStorage.getItem("token");
-  if (sessionToken) {
-    console.log("Found token in sessionStorage");
-    return sessionToken;
-  }
-  
-  // Check cookies
-  const cookies = document.cookie.split(';');
-  for (const cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === "token" && value) {
-      console.log("Found token in cookies");
-      return value;
+// Token storage utility from SamlCallback.jsx
+const TokenStorage = {
+  getToken: () => {
+    // Try localStorage first
+    const localStorageToken = localStorage.getItem("token");
+    if (localStorageToken) return localStorageToken;
+    
+    // Try sessionStorage
+    const sessionStorageToken = sessionStorage.getItem("token");
+    if (sessionStorageToken) return sessionStorageToken;
+    
+    // Try cookies
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === "token" && value) return value;
+      if (name === "token_alt" && value) return value;
     }
-  }
+    
+    // Try window variable
+    if (window.AUTH_TOKEN) return window.AUTH_TOKEN;
+    
+    return null;
+  },
   
-  // Check URL parameters
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlToken = urlParams.get("token");
-  if (urlToken) {
-    console.log("Found token in URL parameters");
-    // Store it in localStorage for future use
-    try {
-      localStorage.setItem("token", urlToken);
-      localStorage.setItem("force_auth", "true");
-    } catch (e) {
-      console.error("Error storing URL token:", e);
-    }
-    return urlToken;
+  isForceAuthEnabled: () => {
+    return (
+      localStorage.getItem("force_auth") === "true" ||
+      sessionStorage.getItem("force_auth") === "true" ||
+      document.cookie.split(';').some(c => c.trim() === "force_auth=true") ||
+      window.FORCE_AUTH === true
+    );
   }
-  
-  return null;
-};
-
-// Helper to check if force auth is enabled in any storage
-const isForceAuthEnabled = () => {
-  return (
-    window.forceAuth === true ||
-    localStorage.getItem("force_auth") === "true" ||
-    sessionStorage.getItem("force_auth") === "true" ||
-    document.cookie.includes("force_auth=true")
-  );
 };
 
 function App() {
   const [authenticated, setAuthenticated] = useState(null);
   const [allowed, setAllowed] = useState(true);
+  const [authDebugInfo, setAuthDebugInfo] = useState({});
 
   useEffect(() => {
-    const token = getStoredToken();
-    const forceAuth = isForceAuthEnabled();
+    const token = TokenStorage.getToken();
+    const forceAuth = TokenStorage.isForceAuthEnabled();
+    
+    // Store debug info
+    setAuthDebugInfo({
+      hasToken: !!token,
+      tokenLength: token ? token.length : 0,
+      forceAuth,
+      localStorage: {
+        token: !!localStorage.getItem("token"),
+        forceAuth: localStorage.getItem("force_auth") === "true"
+      },
+      sessionStorage: {
+        token: !!sessionStorage.getItem("token"),
+        forceAuth: sessionStorage.getItem("force_auth") === "true"
+      },
+      cookies: document.cookie
+    });
     
     console.log("Auth check - token exists:", !!token);
-    console.log("Force auth status:", forceAuth);
+    console.log("Force auth enabled:", forceAuth);
     
-    if (forceAuth) {
+    if (forceAuth && token) {
       console.log("Force auth enabled, bypassing check");
       setAuthenticated(true);
       return;
     }
     
     if (!token) {
-      console.log("No token found in any storage, setting authenticated=false");
+      console.log("No token found, setting authenticated=false");
       setAuthenticated(false);
       return;
     }
@@ -113,9 +105,8 @@ function App() {
         })
         .catch((err) => {
           console.error("Auth check error:", err);
-          // If we have a token but validation fails, try using force auth
-          if (token) {
-            console.log("Using token without validation");
+          // If force auth is enabled, still authenticate despite error
+          if (forceAuth) {
             setAuthenticated(true);
           } else {
             setAuthenticated(false);
@@ -123,41 +114,15 @@ function App() {
         });
     } catch (e) {
       console.error("Error in auth check:", e);
-      if (token) {
-        // If we have a token but validation fails, use it anyway
-        console.log("Using token without validation due to error");
+      // If force auth is enabled, still authenticate despite error
+      if (forceAuth) {
         setAuthenticated(true);
       } else {
         setAuthenticated(false);
       }
     }
   }, []);  
-  
-  // Add a home route component that checks for POST data
-  const HomeRoute = () => {
-    const location = useLocation();
-    
-    useEffect(() => {
-      // Check if token was passed in location state (from React Router)
-      if (location.state?.token) {
-        console.log("Found token in route state, storing it");
-        try {
-          localStorage.setItem("token", location.state.token);
-          localStorage.setItem("force_auth", "true");
-          setAuthenticated(true);
-        } catch (e) {
-          console.error("Error storing state token:", e);
-        }
-      }
-    }, [location]);
-    
-    if (authenticated) {
-      return <HomePage onLogout={() => setAuthenticated(false)} />;
-    }
-    
-    return <Navigate to="/" />;
-  };
-  
+
   if (!allowed) {
     return (
       <div
@@ -174,7 +139,7 @@ function App() {
     );
   }
 
-  // Show loading state with more details
+  // Show loading state with more details and debug info
   if (authenticated === null) {
     return (
       <div style={{
@@ -188,6 +153,11 @@ function App() {
         <p style={{ fontSize: "14px", color: "#666" }}>
           If you continue to see this screen, please try refreshing the page.
         </p>
+        
+        <div style={{ marginTop: "20px", padding: "15px", background: "#f8f8f8", maxWidth: "600px" }}>
+          <h3>Auth Debug Info</h3>
+          <pre>{JSON.stringify(authDebugInfo, null, 2)}</pre>
+        </div>
       </div>
     );
   }
@@ -212,8 +182,17 @@ function App() {
         />
         <Route
           path="/home"
-          element={<HomeRoute />}
+          element={
+            authenticated ? (
+              <HomePage onLogout={() => setAuthenticated(false)} />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
         />
+        {/* Debug route - always accessible */}
+        <Route path="/debug" element={<TokenDebugPage />} />
+        
         {/* Make SAML callback available regardless of auth state */}
         <Route path="/saml/callback" element={<SamlCallback />} />
       </Routes>

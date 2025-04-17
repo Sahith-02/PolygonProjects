@@ -1,49 +1,106 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-// Helper function to store token using multiple methods
-const storeTokenSecurely = (token) => {
-  const storageSuccess = {
-    localStorage: false,
-    sessionStorage: false,
-    cookie: false
-  };
+// Token storage utility with multiple fallbacks
+const TokenStorage = {
+  // Store token with all available methods
+  storeToken: (token, additionalData = {}) => {
+    const results = { success: false, methods: {} };
+    
+    // Try localStorage
+    try {
+      localStorage.setItem("token", token);
+      if (additionalData.forceAuth) localStorage.setItem("force_auth", "true");
+      results.methods.localStorage = true;
+      results.success = true;
+    } catch (e) {
+      console.error("localStorage error:", e);
+      results.methods.localStorage = false;
+    }
+    
+    // Try sessionStorage
+    try {
+      sessionStorage.setItem("token", token);
+      if (additionalData.forceAuth) sessionStorage.setItem("force_auth", "true");
+      results.methods.sessionStorage = true;
+      results.success = true;
+    } catch (e) {
+      console.error("sessionStorage error:", e);
+      results.methods.sessionStorage = false;
+    }
+    
+    // Try cookies with different approaches
+    try {
+      // Standard cookie
+      document.cookie = `token=${token}; path=/; max-age=36000; SameSite=Lax`;
+      if (additionalData.forceAuth) {
+        document.cookie = `force_auth=true; path=/; max-age=36000; SameSite=Lax`;
+      }
+      
+      // Also try a different SameSite setting
+      document.cookie = `token_alt=${token}; path=/; max-age=36000; SameSite=None; Secure`;
+      
+      results.methods.cookies = true;
+      results.success = true;
+    } catch (e) {
+      console.error("Cookie error:", e);
+      results.methods.cookies = false;
+    }
+    
+    // Create a global variable as last resort
+    try {
+      window.AUTH_TOKEN = token;
+      window.FORCE_AUTH = additionalData.forceAuth;
+      results.methods.window = true;
+      results.success = true;
+    } catch (e) {
+      console.error("Window variable error:", e);
+      results.methods.window = false;
+    }
+    
+    return results;
+  },
   
-  // Try localStorage
-  try {
-    localStorage.setItem("token", token);
-    localStorage.setItem("force_auth", "true");
-    storageSuccess.localStorage = true;
-  } catch (e) {
-    console.error("localStorage storage failed:", e);
+  // Get the token from any available source
+  getToken: () => {
+    // Try localStorage first
+    const localStorageToken = localStorage.getItem("token");
+    if (localStorageToken) return localStorageToken;
+    
+    // Try sessionStorage
+    const sessionStorageToken = sessionStorage.getItem("token");
+    if (sessionStorageToken) return sessionStorageToken;
+    
+    // Try cookies
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === "token" && value) return value;
+      if (name === "token_alt" && value) return value;
+    }
+    
+    // Try window variable
+    if (window.AUTH_TOKEN) return window.AUTH_TOKEN;
+    
+    return null;
+  },
+  
+  // Check if force auth is enabled
+  isForceAuthEnabled: () => {
+    return (
+      localStorage.getItem("force_auth") === "true" ||
+      sessionStorage.getItem("force_auth") === "true" ||
+      document.cookie.split(';').some(c => c.trim() === "force_auth=true") ||
+      window.FORCE_AUTH === true
+    );
   }
-  
-  // Try sessionStorage as fallback
-  try {
-    sessionStorage.setItem("token", token);
-    sessionStorage.setItem("force_auth", "true");
-    storageSuccess.sessionStorage = true;
-  } catch (e) {
-    console.error("sessionStorage storage failed:", e);
-  }
-  
-  // Try cookies as another fallback (works across page reloads)
-  try {
-    document.cookie = `token=${token}; path=/; max-age=36000; SameSite=Lax`;
-    document.cookie = `force_auth=true; path=/; max-age=36000; SameSite=Lax`;
-    storageSuccess.cookie = true;
-  } catch (e) {
-    console.error("Cookie storage failed:", e);
-  }
-  
-  return storageSuccess;
 };
 
 export default function SamlCallback() {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [debugInfo, setDebugInfo] = useState({});
+  const [storageResults, setStorageResults] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,15 +110,6 @@ export default function SamlCallback() {
     const errorMsg = searchParams.get("message");
     
     console.log("SAML Callback - Token present:", !!token);
-    
-    // Store debug info
-    setDebugInfo({
-      hasToken: !!token,
-      tokenLength: token ? token.length : 0,
-      error: error || "none",
-      errorMsg: errorMsg || "none",
-      url: window.location.href
-    });
 
     if (error) {
       setError(errorMsg || "Authentication failed. Please try again.");
@@ -70,74 +118,33 @@ export default function SamlCallback() {
       return;
     }
 
-    if (token) {
-      // Add the token to the window object first
-      try {
-        window.authToken = token;
-        window.forceAuth = true;
-        console.log("Token stored in window object");
-      } catch (e) {
-        console.error("Window object storage error:", e);
-      }
-      
-      // Store the token using our helper function
-      const storageResults = storeTokenSecurely(token);
-      
-      console.log("Storage results:", storageResults);
-      
-      if (Object.values(storageResults).some(success => success)) {
-        // At least one storage method worked
-        console.log("Token stored through at least one method");
-        
-        // Create a hidden form to POST the token to the home page
-        // This is a fallback method if all else fails
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/home';
-        form.style.display = 'none';
-        
-        const tokenInput = document.createElement('input');
-        tokenInput.type = 'hidden';
-        tokenInput.name = 'token';
-        tokenInput.value = token;
-        
-        form.appendChild(tokenInput);
-        document.body.appendChild(form);
-        
-        // Wait a bit then redirect in different ways
-        setTimeout(() => {
-          try {
-            // Method 1: Navigate using React Router
-            navigate('/home', { state: { token, forceAuth: true } });
-            
-            // Method 2: Direct page load after a short delay
-            setTimeout(() => {
-              window.location.href = "/home?token=" + encodeURIComponent(token);
-            }, 500);
-            
-            // Method 3: Submit the form as a last resort
-            setTimeout(() => {
-              try {
-                form.submit();
-              } catch (e) {
-                console.error("Form submission error:", e);
-              }
-            }, 1000);
-          } catch (e) {
-            console.error("Navigation error:", e);
-            // Force reload as last resort
-            window.location.reload();
-          }
-        }, 500);
-      } else {
-        setError("Failed to store authentication token. Please try again or contact support.");
-        setLoading(false);
-        setTimeout(() => navigate("/"), 5000);
-      }
-    } else {
+    if (!token) {
       setError("No authentication token received. Please try again.");
       setLoading(false);
       setTimeout(() => navigate("/"), 5000);
+      return;
+    }
+    
+    // Store token with our utility
+    const results = TokenStorage.storeToken(token, { forceAuth: true });
+    setStorageResults(results);
+    
+    if (results.success) {
+      console.log("Token stored successfully with methods:", results.methods);
+      
+      // Let's see if redirecting to debug page instead of home helps diagnose
+      navigate(`/debug?token=${encodeURIComponent(token)}`);
+      
+      /* 
+      // This is the original navigation that we'll eventually use
+      setTimeout(() => {
+        navigate('/home');
+      }, 1000);
+      */
+    } else {
+      console.error("Failed to store token with any method");
+      setError("Failed to store token. Please try direct login.");
+      setLoading(false);
     }
   }, [searchParams, navigate]);
 
@@ -152,9 +159,17 @@ export default function SamlCallback() {
       padding: "20px"
     }}>
       {/* Debug info section */}
-      <div style={{ marginBottom: "20px", padding: "15px", border: "1px solid #ccc", backgroundColor: "#f8f8f8" }}>
+      <div style={{ marginBottom: "20px", padding: "15px", border: "1px solid #ccc", backgroundColor: "#f8f8f8", maxWidth: "800px", width: "100%" }}>
         <h3>Debug Information</h3>
-        <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+        <p><strong>Token Present:</strong> {searchParams.get("token") ? "Yes" : "No"}</p>
+        <p><strong>Error:</strong> {searchParams.get("error") || "None"}</p>
+        
+        {storageResults && (
+          <>
+            <h4>Storage Results:</h4>
+            <pre>{JSON.stringify(storageResults, null, 2)}</pre>
+          </>
+        )}
       </div>
 
       {loading ? (
