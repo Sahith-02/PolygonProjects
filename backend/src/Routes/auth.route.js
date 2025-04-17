@@ -37,25 +37,43 @@ router.post("/api/logout", (req, res) => {
   res.json({ success: true }); // JWT is stateless, client clears token
 });
 
-router.get("/api/debug-auth", (req, res) => {
-  const authHeader = req.headers.authorization;
+// router.get("/api/debug-auth", (req, res) => {
+//   const authHeader = req.headers.authorization;
 
-  // Return detailed info about the request
+//   // Return detailed info about the request
+//   res.json({
+//     headers: req.headers,
+//     authHeader: authHeader ? "Present" : "Missing",
+//     tokenExists: !!authHeader?.split(" ")[1],
+//     tokenValidation: authHeader
+//       ? (() => {
+//           try {
+//             const token = authHeader.split(" ")[1];
+//             const decoded = jwt.verify(token, JWT_SECRET);
+//             return { valid: true, payload: decoded };
+//           } catch (err) {
+//             return { valid: false, error: err.message };
+//           }
+//         })()
+//       : "No token to validate",
+//   });
+// });
+
+// Add this new endpoint for debugging
+router.get("/api/debug-token", (req, res) => {
+  const authHeader = req.headers.authorization;
   res.json({
-    headers: req.headers,
-    authHeader: authHeader ? "Present" : "Missing",
-    tokenExists: !!authHeader?.split(" ")[1],
-    tokenValidation: authHeader
-      ? (() => {
-          try {
-            const token = authHeader.split(" ")[1];
-            const decoded = jwt.verify(token, JWT_SECRET);
-            return { valid: true, payload: decoded };
-          } catch (err) {
-            return { valid: false, error: err.message };
-          }
-        })()
-      : "No token to validate",
+    tokenPresent: !!authHeader,
+    tokenValid: authHeader ? (() => {
+      try {
+        const token = authHeader.split(" ")[1];
+        jwt.verify(token, JWT_SECRET);
+        return true;
+      } catch {
+        return false;
+      }
+    })() : false,
+    serverTime: new Date().toISOString(),
   });
 });
 export default router;
