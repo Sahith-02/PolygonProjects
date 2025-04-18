@@ -42,7 +42,7 @@ HZP3t2G8KLhk6LfUbTmO
     entryPoint:
       "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml",
     // UPDATED with new Issuer/Entity ID from Thalles IDP
-    issuer: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA",
+    issuer: "https://geospatial-ap-backend.onrender.com",
     cert: cert,
     identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
     validateInResponseTo: false,
