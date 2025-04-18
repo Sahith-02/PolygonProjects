@@ -19,29 +19,31 @@ const TokenStorage = {
     // Try localStorage first
     const localStorageToken = localStorage.getItem("token");
     if (localStorageToken) return localStorageToken;
-    
+
     // Try sessionStorage
     const sessionStorageToken = sessionStorage.getItem("token");
     if (sessionStorageToken) return sessionStorageToken;
-    
+
     // Try cookies
-    const cookies = document.cookie.split(';');
+    const cookies = document.cookie.split(";");
     for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
+      const [name, value] = cookie.trim().split("=");
       if (name === "token" && value) return value;
     }
-    
+
     return null;
   },
-  
+
   isForceAuthEnabled: () => {
     return (
       localStorage.getItem("force_auth") === "true" ||
       sessionStorage.getItem("force_auth") === "true" ||
-      document.cookie.split(';').some(c => c.trim().startsWith("force_auth=true"))
+      document.cookie
+        .split(";")
+        .some((c) => c.trim().startsWith("force_auth=true"))
     );
   },
-  
+
   clearToken: () => {
     try {
       localStorage.removeItem("token");
@@ -49,21 +51,22 @@ const TokenStorage = {
     } catch (e) {
       console.error("Error clearing localStorage:", e);
     }
-    
+
     try {
       sessionStorage.removeItem("token");
       sessionStorage.removeItem("force_auth");
     } catch (e) {
       console.error("Error clearing sessionStorage:", e);
     }
-    
+
     try {
       document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "force_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie =
+        "force_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     } catch (e) {
       console.error("Error clearing cookies:", e);
     }
-  }
+  },
 };
 
 function App() {
@@ -78,7 +81,7 @@ function App() {
   const checkAuthentication = () => {
     const token = TokenStorage.getToken();
     const forceAuth = TokenStorage.isForceAuthEnabled();
-    
+
     // Store debug info
     setAuthDebugInfo({
       hasToken: !!token,
@@ -86,30 +89,30 @@ function App() {
       forceAuth,
       localStorage: {
         token: !!localStorage.getItem("token"),
-        forceAuth: localStorage.getItem("force_auth") === "true"
+        forceAuth: localStorage.getItem("force_auth") === "true",
       },
       sessionStorage: {
         token: !!sessionStorage.getItem("token"),
-        forceAuth: sessionStorage.getItem("force_auth") === "true"
+        forceAuth: sessionStorage.getItem("force_auth") === "true",
       },
-      cookies: document.cookie
+      cookies: document.cookie,
     });
-    
+
     console.log("Auth check - token exists:", !!token);
     console.log("Force auth enabled:", forceAuth);
-    
+
     if (forceAuth && token) {
       console.log("Force auth enabled, bypassing check");
       setAuthenticated(true);
       return;
     }
-    
+
     if (!token) {
       console.log("No token found, setting authenticated=false");
       setAuthenticated(false);
       return;
     }
-    
+
     // Verify token with backend
     fetch(`${API_BASE}/api/check-auth`, {
       headers: {
@@ -167,19 +170,28 @@ function App() {
   // Show loading state with more details and debug info
   if (authenticated === null) {
     return (
-      <div style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-        flexDirection: "column"
-      }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          flexDirection: "column",
+        }}
+      >
         <p>Loading authentication state...</p>
         <p style={{ fontSize: "14px", color: "#666" }}>
           If you continue to see this screen, please try refreshing the page.
         </p>
-        
-        <div style={{ marginTop: "20px", padding: "15px", background: "#f8f8f8", maxWidth: "600px" }}>
+
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "15px",
+            background: "#f8f8f8",
+            maxWidth: "600px",
+          }}
+        >
           <h3>Auth Debug Info</h3>
           <pre>{JSON.stringify(authDebugInfo, null, 2)}</pre>
         </div>
@@ -188,7 +200,7 @@ function App() {
   }
 
   console.log("Rendering routes with authenticated =", authenticated);
-  
+
   return (
     <Router>
       <Routes>
@@ -198,10 +210,7 @@ function App() {
             authenticated ? (
               <Navigate to="/home" />
             ) : (
-              <LoginPage 
-                onLogin={handleLogin} 
-                useSaml={IS_PRODUCTION}
-              />
+              <LoginPage onLogin={handleLogin} useSaml={IS_PRODUCTION} />
             )
           }
         />
@@ -215,11 +224,9 @@ function App() {
             )
           }
         />
-        {/* Debug route - always accessible */}
         <Route path="/debug" element={<TokenDebugPage />} />
-        
-        {/* Make SAML callback available regardless of auth state */}
-        <Route path="/saml/callback" element={<SamlCallback />} />
+
+        <Route path="/saml/callback" element={<SamlCallback onLogin={handleLogin} />} />
       </Routes>
     </Router>
   );

@@ -12,7 +12,10 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
-const FRONTEND_URL = "https://geospatial-ap-frontend.onrender.com";
+const FRONTEND_URL =
+  process.env.FRONTEND_URL || "https://geospatial-ap-frontend.onrender.com";
+const BACKEND_URL =
+  process.env.BACKEND_URL || "https://geospatial-ap-backend.onrender.com";
 
 // Skip SAML in development mode
 if (IS_PRODUCTION) {
@@ -43,11 +46,10 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 
   // Create SAML strategy with better debugging
   const samlOptions = {
-    callbackUrl:
-      "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
+    callbackUrl: `${BACKEND_URL}/api/auth/saml/callback`,
     entryPoint:
       "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4",
-    issuer: "https://geospatial-ap-backend.onrender.com",
+    issuer: BACKEND_URL,
     cert: cert,
     identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
     validateInResponseTo: false,
@@ -127,59 +129,10 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
       });
       console.log("Generated token for user:", user.username);
 
-      // IMPORTANT CHANGE: Instead of redirecting with the token in the URL,
-      // render an HTML page that will store the token in localStorage and redirect
-      const successHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>SAML Authentication Success</title>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <script>
-            window.onload = function() {
-              // Store the token in multiple storage methods
-              try {
-                // Try localStorage first
-                localStorage.setItem('token', '${token}');
-                localStorage.setItem('force_auth', 'true');
-                console.log("Token stored in localStorage");
-              } catch (e) {
-                console.error("localStorage error:", e);
-              }
-              
-              try {
-                // Try sessionStorage as backup
-                sessionStorage.setItem('token', '${token}');
-                sessionStorage.setItem('force_auth', 'true');
-                console.log("Token stored in sessionStorage");
-              } catch (e) {
-                console.error("sessionStorage error:", e);
-              }
-              
-              try {
-                // Also try cookies
-                document.cookie = "token=${token}; path=/; max-age=36000; SameSite=None; Secure";
-                document.cookie = "force_auth=true; path=/; max-age=36000; SameSite=None; Secure";
-                console.log("Token stored in cookies");
-              } catch (e) {
-                console.error("Cookie error:", e);
-              }
-              
-              // Redirect to home page
-              window.location.href = '${FRONTEND_URL}/home';
-            }
-          </script>
-        </head>
-        <body>
-          <h1>Authentication Successful</h1>
-          <p>Redirecting to application...</p>
-        </body>
-        </html>
-      `;
-
-      res.set("Content-Type", "text/html");
-      res.send(successHtml);
+      // Simply redirect to the frontend SAML callback route with the token as a parameter
+      return res.redirect(
+        `${FRONTEND_URL}/saml/callback?token=${encodeURIComponent(token)}`
+      );
     })(req, res, next);
   });
 
