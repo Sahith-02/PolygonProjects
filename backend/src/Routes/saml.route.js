@@ -39,17 +39,18 @@ HZP3t2G8KLhk6LfUbTmO
     callbackUrl:
       "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
     // UPDATED with new SingleSignOnService URL from Thalles IDP
-    entryPoint:
-      "https://cloud.eu.safenetid.com/selfEnrollment/index.aspx?code=z3ouOTA9RVci3mVZJ8y9ZUwjC",
-    // UPDATED with new Issuer/Entity ID from Thalles IDP
-    issuer: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA",
-    cert: cert,
-    identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+    // entryPoint:
+    //   "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml",
+    // // UPDATED with new Issuer/Entity ID from Thalles IDP
+    // issuer: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA",
+    // cert: cert,
+    // identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
     validateInResponseTo: false,
     disableRequestedAuthnContext: true,
     acceptedClockSkewMs: 5000, // Allow for clock skew between IdP and SP
     forceAuthn: false,
     passive: false,
+    metadata: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml/descriptor",
   };
 
   console.log("SAML Strategy options:", JSON.stringify(samlOptions, null, 2));
