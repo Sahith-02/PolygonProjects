@@ -7,7 +7,6 @@ import {
 import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
-import SamlCallback from "./Pages/SamlCallback";
 import TokenDebugPage from "./Pages/TokenDebugPage";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
@@ -229,9 +228,6 @@ function App() {
         />
         {/* Debug route - always accessible */}
         <Route path="/debug" element={<TokenDebugPage />} />
-        
-        {/* IMPORTANT: SAML callback route must be accessible when not authenticated */}
-        <Route path="/saml/callback" element={<SamlCallback />} />
       </Routes>
     </Router>
   );

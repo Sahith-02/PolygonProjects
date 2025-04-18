@@ -126,9 +126,9 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
       });
       console.log("Generated token for user:", user.username);
 
-      // SIMPLE AND DIRECT: Redirect to frontend with token as URL parameter
+      // CHANGED: Redirect to login page with token instead of callback page
       return res.redirect(
-        `${FRONTEND_URL}/saml/callback?token=${encodeURIComponent(token)}`
+        `${FRONTEND_URL}/?token=${encodeURIComponent(token)}`
       );
     })(req, res, next);
   });
