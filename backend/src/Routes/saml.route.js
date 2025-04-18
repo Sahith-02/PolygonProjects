@@ -12,6 +12,7 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const FRONTEND_URL = "https://geospatial-ap-frontend.onrender.com";
 
 // Skip SAML in development mode
 if (IS_PRODUCTION) {
@@ -109,16 +110,15 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
       if (err) {
         console.error("SAML Auth Error:", err);
         return res.redirect(
-          "https://geospatial-ap-frontend.onrender.com/?error=saml&message=" +
-            encodeURIComponent(err.message)
+          `${FRONTEND_URL}/?error=saml&message=${encodeURIComponent(
+            err.message
+          )}`
         );
       }
 
       if (!user) {
         console.error("No user from SAML:", info);
-        return res.redirect(
-          "https://geospatial-ap-frontend.onrender.com/?error=nouser"
-        );
+        return res.redirect(`${FRONTEND_URL}/?error=nouser`);
       }
 
       // Generate JWT token
@@ -127,10 +127,59 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
       });
       console.log("Generated token for user:", user.username);
 
-      // Redirect to frontend with token
-      res.redirect(
-        `https://geospatial-ap-frontend.onrender.com/saml/callback?token=${token}`
-      );
+      // IMPORTANT CHANGE: Instead of redirecting with the token in the URL,
+      // render an HTML page that will store the token in localStorage and redirect
+      const successHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>SAML Authentication Success</title>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <script>
+            window.onload = function() {
+              // Store the token in multiple storage methods
+              try {
+                // Try localStorage first
+                localStorage.setItem('token', '${token}');
+                localStorage.setItem('force_auth', 'true');
+                console.log("Token stored in localStorage");
+              } catch (e) {
+                console.error("localStorage error:", e);
+              }
+              
+              try {
+                // Try sessionStorage as backup
+                sessionStorage.setItem('token', '${token}');
+                sessionStorage.setItem('force_auth', 'true');
+                console.log("Token stored in sessionStorage");
+              } catch (e) {
+                console.error("sessionStorage error:", e);
+              }
+              
+              try {
+                // Also try cookies
+                document.cookie = "token=${token}; path=/; max-age=36000; SameSite=None; Secure";
+                document.cookie = "force_auth=true; path=/; max-age=36000; SameSite=None; Secure";
+                console.log("Token stored in cookies");
+              } catch (e) {
+                console.error("Cookie error:", e);
+              }
+              
+              // Redirect to home page
+              window.location.href = '${FRONTEND_URL}/home';
+            }
+          </script>
+        </head>
+        <body>
+          <h1>Authentication Successful</h1>
+          <p>Redirecting to application...</p>
+        </body>
+        </html>
+      `;
+
+      res.set("Content-Type", "text/html");
+      res.send(successHtml);
     })(req, res, next);
   });
 
@@ -148,7 +197,7 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 
   router.get("/api/auth/saml/failure", (req, res) => {
     console.log("SAML authentication failed");
-    res.redirect("https://geospatial-ap-frontend.onrender.com/?error=saml");
+    res.redirect(`${FRONTEND_URL}/?error=saml`);
   });
 
   // SAML logout

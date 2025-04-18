@@ -8,12 +8,12 @@ import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
 import SamlCallback from "./Pages/SamlCallback";
-import TokenDebugPage from "./Pages/TokenDebugPage"; // Add this new import
+import TokenDebugPage from "./Pages/TokenDebugPage";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
 const IS_PRODUCTION = import.meta.env.MODE === "production";
 
-// Token storage utility from SamlCallback.jsx
+// Enhanced token storage utility
 const TokenStorage = {
   getToken: () => {
     // Try localStorage first
@@ -29,11 +29,7 @@ const TokenStorage = {
     for (const cookie of cookies) {
       const [name, value] = cookie.trim().split('=');
       if (name === "token" && value) return value;
-      if (name === "token_alt" && value) return value;
     }
-    
-    // Try window variable
-    if (window.AUTH_TOKEN) return window.AUTH_TOKEN;
     
     return null;
   },
@@ -42,9 +38,31 @@ const TokenStorage = {
     return (
       localStorage.getItem("force_auth") === "true" ||
       sessionStorage.getItem("force_auth") === "true" ||
-      document.cookie.split(';').some(c => c.trim() === "force_auth=true") ||
-      window.FORCE_AUTH === true
+      document.cookie.split(';').some(c => c.trim().startsWith("force_auth=true"))
     );
+  },
+  
+  clearToken: () => {
+    try {
+      localStorage.removeItem("token");
+      localStorage.removeItem("force_auth");
+    } catch (e) {
+      console.error("Error clearing localStorage:", e);
+    }
+    
+    try {
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("force_auth");
+    } catch (e) {
+      console.error("Error clearing sessionStorage:", e);
+    }
+    
+    try {
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "force_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    } catch (e) {
+      console.error("Error clearing cookies:", e);
+    }
   }
 };
 
@@ -54,6 +72,10 @@ function App() {
   const [authDebugInfo, setAuthDebugInfo] = useState({});
 
   useEffect(() => {
+    checkAuthentication();
+  }, []);
+
+  const checkAuthentication = () => {
     const token = TokenStorage.getToken();
     const forceAuth = TokenStorage.isForceAuthEnabled();
     
@@ -88,40 +110,43 @@ function App() {
       return;
     }
     
-    try {
-      console.log("Attempting to verify token");
-      fetch(`${API_BASE}/api/check-auth`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+    // Verify token with backend
+    fetch(`${API_BASE}/api/check-auth`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("Auth check response:", data);
+        if (data.authenticated) {
+          setAuthenticated(true);
+        } else {
+          // If token is invalid, clear it and set unauthenticated
+          TokenStorage.clearToken();
+          setAuthenticated(false);
+        }
       })
-        .then((res) => {
-          console.log("Auth check response status:", res.status);
-          return res.json();
-        })
-        .then((data) => {
-          console.log("Auth check response data:", data);
-          setAuthenticated(data.authenticated);
-        })
-        .catch((err) => {
-          console.error("Auth check error:", err);
-          // If force auth is enabled, still authenticate despite error
-          if (forceAuth) {
-            setAuthenticated(true);
-          } else {
-            setAuthenticated(false);
-          }
-        });
-    } catch (e) {
-      console.error("Error in auth check:", e);
-      // If force auth is enabled, still authenticate despite error
-      if (forceAuth) {
-        setAuthenticated(true);
-      } else {
-        setAuthenticated(false);
-      }
-    }
-  }, []);  
+      .catch((err) => {
+        console.error("Auth check error:", err);
+        // If force auth is enabled, still authenticate despite error
+        if (forceAuth) {
+          setAuthenticated(true);
+        } else {
+          TokenStorage.clearToken();
+          setAuthenticated(false);
+        }
+      });
+  };
+
+  const handleLogin = () => {
+    setAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    TokenStorage.clearToken();
+    setAuthenticated(false);
+  };
 
   if (!allowed) {
     return (
@@ -174,7 +199,7 @@ function App() {
               <Navigate to="/home" />
             ) : (
               <LoginPage 
-                onLogin={() => setAuthenticated(true)} 
+                onLogin={handleLogin} 
                 useSaml={IS_PRODUCTION}
               />
             )
@@ -184,7 +209,7 @@ function App() {
           path="/home"
           element={
             authenticated ? (
-              <HomePage onLogout={() => setAuthenticated(false)} />
+              <HomePage onLogout={handleLogout} />
             ) : (
               <Navigate to="/" />
             )

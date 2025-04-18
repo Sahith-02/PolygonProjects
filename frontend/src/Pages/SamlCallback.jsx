@@ -37,25 +37,14 @@ const TokenStorage = {
         document.cookie = `force_auth=true; path=/; max-age=36000; SameSite=Lax`;
       }
       
-      // Also try a different SameSite setting
-      document.cookie = `token_alt=${token}; path=/; max-age=36000; SameSite=None; Secure`;
+      // Also try a different SameSite setting for cross-origin scenarios
+      document.cookie = `token=${token}; path=/; max-age=36000; SameSite=None; Secure`;
       
       results.methods.cookies = true;
       results.success = true;
     } catch (e) {
       console.error("Cookie error:", e);
       results.methods.cookies = false;
-    }
-    
-    // Create a global variable as last resort
-    try {
-      window.AUTH_TOKEN = token;
-      window.FORCE_AUTH = additionalData.forceAuth;
-      results.methods.window = true;
-      results.success = true;
-    } catch (e) {
-      console.error("Window variable error:", e);
-      results.methods.window = false;
     }
     
     return results;
@@ -76,11 +65,7 @@ const TokenStorage = {
     for (const cookie of cookies) {
       const [name, value] = cookie.trim().split('=');
       if (name === "token" && value) return value;
-      if (name === "token_alt" && value) return value;
     }
-    
-    // Try window variable
-    if (window.AUTH_TOKEN) return window.AUTH_TOKEN;
     
     return null;
   },
@@ -90,8 +75,7 @@ const TokenStorage = {
     return (
       localStorage.getItem("force_auth") === "true" ||
       sessionStorage.getItem("force_auth") === "true" ||
-      document.cookie.split(';').some(c => c.trim() === "force_auth=true") ||
-      window.FORCE_AUTH === true
+      document.cookie.split(';').some(c => c.trim().startsWith("force_auth=true"))
     );
   }
 };
@@ -132,19 +116,15 @@ export default function SamlCallback() {
     if (results.success) {
       console.log("Token stored successfully with methods:", results.methods);
       
-      // Let's see if redirecting to debug page instead of home helps diagnose
-      navigate(`/debug?token=${encodeURIComponent(token)}`);
-      
-      /* 
-      // This is the original navigation that we'll eventually use
+      // Give time for storage to complete then redirect
       setTimeout(() => {
         navigate('/home');
       }, 1000);
-      */
     } else {
       console.error("Failed to store token with any method");
       setError("Failed to store token. Please try direct login.");
       setLoading(false);
+      setTimeout(() => navigate("/"), 5000);
     }
   }, [searchParams, navigate]);
 

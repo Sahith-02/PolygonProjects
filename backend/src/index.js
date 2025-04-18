@@ -28,14 +28,16 @@ app.use(
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) === -1) {
         console.log("Origin rejected by CORS:", origin);
-        return callback(null, true); // Allow all origins in production for SAML
+        // In production, be more permissive for SAML redirects
+        return callback(null, true);
       }
       return callback(null, true);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-    secure:true,
+    exposedHeaders: ["Set-Cookie"],
+    secure: IS_PRODUCTION,
   })
 );
 
@@ -52,7 +54,7 @@ if (IS_PRODUCTION) {
       saveUninitialized: true,
       cookie: {
         secure: IS_PRODUCTION, // true in production if using HTTPS
-        sameSite: "none", // Add this line to allow cross-site cookies
+        sameSite: "none", // Allow cross-site cookies
         maxAge: 24 * 60 * 60 * 1000,
       },
     })
@@ -62,6 +64,17 @@ if (IS_PRODUCTION) {
   app.use(passport.initialize());
   app.use(passport.session());
 }
+
+// Enable CORS for all routes
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  next();
+});
 
 app.use("/api", tileRoutes);
 app.use("/", authRoutes);
