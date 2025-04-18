@@ -1,7 +1,6 @@
 import express from "express";
 import passport from "passport";
 import { Strategy as SamlStrategy } from "passport-saml";
-import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import jwt from "jsonwebtoken";
@@ -12,10 +11,7 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
-const FRONTEND_URL =
-  process.env.FRONTEND_URL || "https://geospatial-ap-frontend.onrender.com";
-const BACKEND_URL =
-  process.env.BACKEND_URL || "https://geospatial-ap-backend.onrender.com";
+const FRONTEND_URL = "https://geospatial-ap-frontend.onrender.com";
 
 // Skip SAML in development mode
 if (IS_PRODUCTION) {
@@ -46,10 +42,11 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
 
   // Create SAML strategy with better debugging
   const samlOptions = {
-    callbackUrl: `${BACKEND_URL}/api/auth/saml/callback`,
+    callbackUrl:
+      "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
     entryPoint:
       "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4",
-    issuer: BACKEND_URL,
+    issuer: "https://geospatial-ap-backend.onrender.com",
     cert: cert,
     identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
     validateInResponseTo: false,
@@ -129,7 +126,7 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
       });
       console.log("Generated token for user:", user.username);
 
-      // Simply redirect to the frontend SAML callback route with the token as a parameter
+      // SIMPLE AND DIRECT: Redirect to frontend with token as URL parameter
       return res.redirect(
         `${FRONTEND_URL}/saml/callback?token=${encodeURIComponent(token)}`
       );

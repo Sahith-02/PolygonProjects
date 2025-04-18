@@ -81,7 +81,7 @@ function App() {
   const checkAuthentication = () => {
     const token = TokenStorage.getToken();
     const forceAuth = TokenStorage.isForceAuthEnabled();
-
+    
     // Store debug info
     setAuthDebugInfo({
       hasToken: !!token,
@@ -89,30 +89,30 @@ function App() {
       forceAuth,
       localStorage: {
         token: !!localStorage.getItem("token"),
-        forceAuth: localStorage.getItem("force_auth") === "true",
+        forceAuth: localStorage.getItem("force_auth") === "true"
       },
       sessionStorage: {
         token: !!sessionStorage.getItem("token"),
-        forceAuth: sessionStorage.getItem("force_auth") === "true",
+        forceAuth: sessionStorage.getItem("force_auth") === "true"
       },
-      cookies: document.cookie,
+      cookies: document.cookie
     });
-
+    
     console.log("Auth check - token exists:", !!token);
     console.log("Force auth enabled:", forceAuth);
-
+    
     if (forceAuth && token) {
       console.log("Force auth enabled, bypassing check");
       setAuthenticated(true);
       return;
     }
-
+    
     if (!token) {
       console.log("No token found, setting authenticated=false");
       setAuthenticated(false);
       return;
     }
-
+    
     // Verify token with backend
     fetch(`${API_BASE}/api/check-auth`, {
       headers: {
@@ -210,7 +210,10 @@ function App() {
             authenticated ? (
               <Navigate to="/home" />
             ) : (
-              <LoginPage onLogin={handleLogin} useSaml={IS_PRODUCTION} />
+              <LoginPage 
+                onLogin={handleLogin} 
+                useSaml={IS_PRODUCTION}
+              />
             )
           }
         />
@@ -224,9 +227,11 @@ function App() {
             )
           }
         />
+        {/* Debug route - always accessible */}
         <Route path="/debug" element={<TokenDebugPage />} />
-
-        <Route path="/saml/callback" element={<SamlCallback onLogin={handleLogin} />} />
+        
+        {/* IMPORTANT: SAML callback route must be accessible when not authenticated */}
+        <Route path="/saml/callback" element={<SamlCallback />} />
       </Routes>
     </Router>
   );
