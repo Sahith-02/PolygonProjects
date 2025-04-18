@@ -40,7 +40,7 @@ HZP3t2G8KLhk6LfUbTmO
       "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
     // UPDATED with new SingleSignOnService URL from Thalles IDP
     entryPoint:
-      "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml",
+      "https://cloud.eu.safenetid.com/selfEnrollment/index.aspx?code=z3ouOTA9RVci3mVZJ8y9ZUwjC",
     // UPDATED with new Issuer/Entity ID from Thalles IDP
     issuer: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA",
     cert: cert,
