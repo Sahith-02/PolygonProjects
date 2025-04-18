@@ -7,7 +7,7 @@ import {
 import { useEffect, useState } from "react";
 import LoginPage from "./Pages/LoginPage";
 import HomePage from "./Pages/HomePage";
-import TokenDebugPage from "./Pages/TokenDebugPage";
+
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5001";
 const IS_PRODUCTION = import.meta.env.MODE === "production";
@@ -146,8 +146,25 @@ function App() {
   };
 
   const handleLogout = () => {
+    console.log("Logout handler in App.jsx called");
+    
+    // Clear all tokens and auth flags
     TokenStorage.clearToken();
+    
+    // Also check if this is an SSO session and need to logout from OneLogin
+    const useSaml = IS_PRODUCTION && localStorage.getItem("useSaml") === "true";
+    
+    // Update authenticated state
     setAuthenticated(false);
+    
+    // If using SAML/SSO in production, redirect to SAML logout endpoint
+    if (useSaml && IS_PRODUCTION) {
+      console.log("Redirecting to SAML logout endpoint");
+      window.location.href = `${API_BASE}/api/auth/saml/logout`;
+      return;
+    }
+    
+    console.log("Logout successful");
   };
 
   if (!allowed) {
@@ -226,8 +243,7 @@ function App() {
             )
           }
         />
-        {/* Debug route - always accessible */}
-        <Route path="/debug" element={<TokenDebugPage />} />
+       
       </Routes>
     </Router>
   );

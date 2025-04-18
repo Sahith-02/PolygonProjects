@@ -51,11 +51,49 @@ export default function HomePage({ onLogout }) {
   });
 
   const handleLogout = async () => {
-    await fetch(`${API_BASE}/api/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-    onLogout();
+    try {
+      // Get the token to include in the logout request
+      const token = getToken();
+      
+      // Call the logout API endpoint
+      await fetch(`${API_BASE}/api/logout`, {
+        method: "POST",
+        headers: {
+          "Authorization": token ? `Bearer ${token}` : "",
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+      });
+      
+      console.log("Logout API call successful");
+      
+      // Invoke the onLogout function from App.jsx to clear tokens and update authentication state
+      onLogout();
+    } catch (err) {
+      console.error("Logout failed:", err);
+      // Still attempt to clear tokens on client side even if the API call fails
+      onLogout();
+    }
+  };
+  
+  // Helper function to get token from storage
+  const getToken = () => {
+    // Try localStorage first
+    const localStorageToken = localStorage.getItem("token");
+    if (localStorageToken) return localStorageToken;
+
+    // Try sessionStorage
+    const sessionStorageToken = sessionStorage.getItem("token");
+    if (sessionStorageToken) return sessionStorageToken;
+
+    // Try cookies
+    const cookies = document.cookie.split(";");
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split("=");
+      if (name === "token" && value) return value;
+    }
+
+    return null;
   };
 
   useEffect(() => {
@@ -149,15 +187,15 @@ export default function HomePage({ onLogout }) {
           setIsPOISectionVisible={setIsPOISectionVisible}
           isAdminBoundariesVisible={isAdminBoundariesVisible}
           setIsAdminBoundariesVisible={setIsAdminBoundariesVisible}
-          adminSettings={adminSettings} // ✅ Add
-          setAdminSettings={setAdminSettings} // ✅ Add
+          adminSettings={adminSettings}
+          setAdminSettings={setAdminSettings}
           lulcToggles={lulcToggles}
           setLulcToggles={setLulcToggles}
           isLULCSectionVisible={isLULCSectionVisible}
           topographyVisible={topographyVisible}
           setTopographyVisible={setTopographyVisible}
           setIsLULCSectionVisible={setIsLULCSectionVisible}
-          cadastralVisible={cadastralVisible} // ✅ Add this
+          cadastralVisible={cadastralVisible}
           setCadastralVisible={setCadastralVisible}
         />
 

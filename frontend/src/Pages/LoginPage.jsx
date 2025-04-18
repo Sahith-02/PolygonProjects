@@ -24,12 +24,17 @@ export default function LoginPage({ onLogin, useSaml = false }) {
       try {
         localStorage.setItem("token", token);
         localStorage.setItem("force_auth", "true");
+        
+        // Mark that we're using SAML for logout purposes
+        localStorage.setItem("useSaml", "true");
+        
         console.log("Token stored successfully in localStorage from Login page");
         
         // Also try sessionStorage as backup
         try {
           sessionStorage.setItem("token", token);
           sessionStorage.setItem("force_auth", "true");
+          sessionStorage.setItem("useSaml", "true");
         } catch (e) {
           console.warn("Could not store in sessionStorage:", e);
         }
@@ -38,6 +43,7 @@ export default function LoginPage({ onLogin, useSaml = false }) {
         try {
           document.cookie = `token=${token}; path=/; max-age=36000; SameSite=Lax`;
           document.cookie = `force_auth=true; path=/; max-age=36000; SameSite=Lax`;
+          document.cookie = `useSaml=true; path=/; max-age=36000; SameSite=Lax`;
         } catch (e) {
           console.warn("Could not set cookies:", e);
         }
@@ -79,6 +85,10 @@ export default function LoginPage({ onLogin, useSaml = false }) {
       if (res.ok) {
         const data = await res.json();
         localStorage.setItem("token", data.token);
+        
+        // Mark that we're NOT using SAML for logout purposes
+        localStorage.setItem("useSaml", "false");
+        
         toast.success("Login successful!");
         onLogin();
       } else {
