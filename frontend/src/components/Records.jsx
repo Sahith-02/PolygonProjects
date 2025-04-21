@@ -138,27 +138,36 @@ const RecordDetails = ({
                 </div>
               </div>
 
-              <div className="record-item">
-                <div className="item-label">ADANGAL</div>
-                <div className="item-value">
-                  {String(data.Parcel_num).trim() === "137" ? (
-                    <a
-                      href="/pdfs/137_1A.pdf"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: "#007bff",
-                        textDecoration: "underline",
-                        fontSize: "14px",
-                      }}
-                    >
-                      PDF
-                    </a>
-                  ) : (
-                    "—"
-                  )}
+              {String(data.Parcel_num).trim() === "137" ? (
+                <div className="record-item">
+                  <div className="item-label">ADANGAL</div>
+                  <div
+                    className="item-value"
+                    style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}
+                  >
+                    {["137_1A", "137_1B", "137_1C", "137_2"].map((filename) => (
+                      <a
+                        key={filename}
+                        href={`/pdfs/${filename}.pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#007bff",
+                          textDecoration: "underline",
+                          fontSize: "14px",
+                        }}
+                      >
+                        {filename}
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="record-item">
+                  <div className="item-label">ADANGAL</div>
+                  <div className="item-value">—</div>
+                </div>
+              )}
             </>
           )}
         </div>
