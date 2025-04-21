@@ -3,11 +3,11 @@ import { ArrowLeft } from "lucide-react";
 import "../styles/Records.css";
 
 // 🔄 API call to fetch parcel data from backend
+const BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5001";
+
 const fetchRecordByParcelId = async (parcelId) => {
   try {
-    const response = await fetch(
-      `http://localhost:5001/api/records/${parcelId}`
-    );
+    const response = await fetch(`${BASE_URL}/api/records/${parcelId}`);
     return await response.json();
   } catch (err) {
     console.error("Failed to fetch parcel data:", err);
