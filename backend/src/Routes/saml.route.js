@@ -61,8 +61,8 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
     cert: idpCert, // IDP's public certificate
     privateKey: spPrivateKey, // Your SP's private key
     decryptionPvk: spPrivateKey, // For decrypting encrypted assertions
-    signatureAlgorithm: "sha256",
-    digestAlgorithm: "sha256",
+    signatureAlgorithm: "sha1",
+    digestAlgorithm: "sha1",
     identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
     validateInResponseTo: false,
     disableRequestedAuthnContext: true,
