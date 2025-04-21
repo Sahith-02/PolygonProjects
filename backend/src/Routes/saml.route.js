@@ -4,6 +4,7 @@ import { Strategy as SamlStrategy } from "passport-saml";
 import path from "path";
 import { fileURLToPath } from "url";
 import jwt from "jsonwebtoken";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,8 +16,18 @@ const FRONTEND_URL = "https://geospatial-ap-frontend.onrender.com";
 
 // Skip SAML in development mode
 if (IS_PRODUCTION) {
-  // Load certificate - UPDATED with new certificate from Thalles IDP
-  const cert = `-----BEGIN CERTIFICATE-----
+  // Load certificates from files
+  const spPrivateKey = fs.readFileSync(
+    path.join(__dirname, "saml-sp.key"),
+    "utf8"
+  );
+  const spCertificate = fs.readFileSync(
+    path.join(__dirname, "saml-sp.crt"),
+    "utf8"
+  );
+
+  // IDP certificate (you can keep this hardcoded or load from file)
+  const idpCert = `-----BEGIN CERTIFICATE-----
 MIICqzCCAZMCBgGWSJt8fjANBgkqhkiG9w0BAQsFADAZMRcwFQYDVQQDDA4yVVVP
 MTRQSjFHLVNUQTAeFw0yNTA0MTgxMTEyNTFaFw0zNTA0MTgxMTE0MzFaMBkxFzAV
 BgNVBAMMDjJVVU8xNFBKMUctU1RBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
@@ -38,19 +49,30 @@ HZP3t2G8KLhk6LfUbTmO
   const samlOptions = {
     callbackUrl:
       "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
-    // UPDATED with new SingleSignOnService URL from Thalles IDP
     entryPoint:
       "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml",
-    // UPDATED with new Issuer/Entity ID from Thalles IDP
     issuer: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA",
-    cert: cert,
+    cert: idpCert, // IDP's public certificate
+    privateKey: spPrivateKey, // Your SP's private key
+    decryptionPvk: spPrivateKey, // For decrypting encrypted assertions
+    signatureAlgorithm: "sha256",
+    digestAlgorithm: "sha256",
     identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
     validateInResponseTo: false,
     disableRequestedAuthnContext: true,
-    acceptedClockSkewMs: 5000, // Allow for clock skew between IdP and SP
+    acceptedClockSkewMs: 5000,
     forceAuthn: false,
     passive: false,
-    // metadata: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml/descriptor",
+    wantAssertionsSigned: true,
+    wantAuthnResponseSigned: true,
+    wantMessageSigned: true,
+    // Additional security options
+    authnRequestBinding: "HTTP-Redirect",
+    logoutUrl:
+      "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml/logout",
+    additionalParams: {},
+    // Your SP's public certificate (for metadata)
+    serviceProviderCertificate: spCertificate,
   };
 
   console.log("SAML Strategy options:", JSON.stringify(samlOptions, null, 2));
@@ -60,7 +82,12 @@ HZP3t2G8KLhk6LfUbTmO
       "SAML Authentication success, profile:",
       JSON.stringify(profile, null, 2)
     );
-    // This function is called after successful SAML auth
+
+    // Verify required claims
+    if (!profile.nameID) {
+      return done(new Error("No nameID in SAML response"));
+    }
+
     return done(null, {
       username: profile.nameID || profile.email || "samluser",
       email: profile.email,
@@ -118,12 +145,17 @@ HZP3t2G8KLhk6LfUbTmO
       }
 
       // Generate JWT token
-      const token = jwt.sign({ username: user.username }, JWT_SECRET, {
-        expiresIn: "10h",
-      });
-      console.log("Generated token for user:", user.username);
+      const token = jwt.sign(
+        {
+          username: user.username,
+          email: user.email,
+          id: user.id,
+        },
+        JWT_SECRET,
+        { expiresIn: "10h" }
+      );
 
-      // CHANGED: Redirect to login page with token instead of callback page
+      console.log("Generated token for user:", user.username);
       return res.redirect(
         `${FRONTEND_URL}/?token=${encodeURIComponent(token)}`
       );
@@ -133,7 +165,10 @@ HZP3t2G8KLhk6LfUbTmO
   router.get("/api/auth/saml/metadata", (req, res) => {
     try {
       res.type("application/xml");
-      const metadata = samlStrategy.generateServiceProviderMetadata();
+      const metadata = samlStrategy.generateServiceProviderMetadata(
+        spCertificate, // Your SP's public cert
+        spPrivateKey // Your SP's private key
+      );
       console.log("Generated SAML metadata");
       res.send(metadata);
     } catch (err) {
@@ -150,7 +185,7 @@ HZP3t2G8KLhk6LfUbTmO
   // SAML logout
   router.get("/api/auth/saml/logout", (req, res) => {
     console.log("SAML logout requested");
-    // NOTE: You may need to update this logout URL with the correct one from Thalles IDP
+    req.logout();
     res.redirect(
       "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml/logout"
     );
