@@ -59,8 +59,8 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
       "https://polygongeospatial.onelogin.com/trust/saml2/http-post/sso/247a0219-6e0e-4d42-9efe-982727b9d9f4",
     issuer: "https://geospatial-ap-backend.onrender.com",
     cert: idpCert, // IDP's public certificate
-    privateKey: spPrivateKey, // Your SP's private key
-    decryptionPvk: spPrivateKey, // For decrypting encrypted assertions
+    // privateKey: spPrivateKey, // Your SP's private key
+    // decryptionPvk: spPrivateKey, // For decrypting encrypted assertions
     signatureAlgorithm: "sha1",
     digestAlgorithm: "sha1",
     identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
