@@ -74,8 +74,8 @@ BKLOXLDuRH3aNklG+dbkHVDI/YBq/XRsO1OuoY3ficFxoEbZNEE7axAo0zE=
     wantMessageSigned: true,
     // Additional security options
     authnRequestBinding: "HTTP-Redirect",
-    logoutUrl:
-      "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml/logout",
+    // logoutUrl:
+    //   "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml/logout",
     additionalParams: {},
     // Your SP's public certificate (for metadata)
     serviceProviderCertificate: spCertificate,
