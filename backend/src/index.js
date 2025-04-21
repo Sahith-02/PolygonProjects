@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import authRoutes from "./Routes/auth.route.js";
 import tileRoutes from "./Routes/tiles.route.js";
+import recordsRoutes from "./Routes/records.route.js";
+
 import path from "path";
 import MBTiles from "@mapbox/mbtiles";
 
@@ -37,6 +39,7 @@ app.use(
 
 app.use(express.json());
 app.use("/api", tileRoutes);
+app.use("/api", recordsRoutes);
 
 app.use("/", authRoutes);
 
