@@ -28,7 +28,34 @@ if (IS_PRODUCTION) {
     "utf8"
   );
 // IDP certificate (you can keep this hardcoded or load from file)
-  const idpCert = `-----BEGIN CERTIFICATE-----
+//   const idpCert = `-----BEGIN CERTIFICATE-----
+// MIICqzCCAZMCBgGWSJt8fjANBgkqhkiG9w0BAQsFADAZMRcwFQYDVQQDDA4yVVVP
+// MTRQSjFHLVNUQTAeFw0yNTA0MTgxMTEyNTFaFw0zNTA0MTgxMTE0MzFaMBkxFzAV
+// BgNVBAMMDjJVVU8xNFBKMUctU1RBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+// CgKCAQEA6Xz+jVxL6AwLRHQgTKiBhabhubBBKKQK1mdP5EtNuR/MVo4BtskEZDTU
+// bzvVvvPqB8ufUIxUUu3zgxp3z8FHc1b6i9I82knC2BTPupWOMr52wh3Onhp3F/lh
+// K4RzTE88sMlwmnkMMUavrQKAkwtsuXNQdwKRQlpuwfdPRujH8ZoCCafOo9c1MLCH
+// NZvbe4uiaK8UQJKJaiZ4gQ8Ss6upDbacQWJcY5IrIzeB3hRDqKAnt2zYMs/V42QU
+// LzpHU1sDkjicFNdPxdGjnHkeEi6YQORBywc2+llM7Jv0zVrBbrpBF3/ZJjfszepM
+// 76ZG8tMBtfiU3xzwKUTfMNFdJnOT6QIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQBm
+// qkcsmgghXk1Yq6ASW9SVDRApkCepm8z69AkF/myUVJAMNgzKmEAq6nTd7kI84Z0J
+// 3lqoyrYSv7HNUhmwvPWBU5g2sLmqlNQU7cH0DAO3yHv5Q/aplI8ZBN1vpEyCNQcs
+// 7CyHNRcp6yhnfHq5dHtQAjyarlmfDgqi/KItlmCtCnn0iViv3ccIpXRK5hbHXCAi
+// d2rqf7qpmv9n3nrvQ5U9s7aKDz6qIs6DWK4JQcVbbZ4aB27/8J92GKUE0ifBUkPN
+// 9Vkkul52Q2fBcQls1o6QLUzUUnIaKKQMIBMBB3SQAkMfbwbXuKDHVWRLqbDtzRYK
+// HZP3t2G8KLhk6LfUbTmO
+// -----END CERTIFICATE-----`;
+
+  // Create SAML strategy with better debugging
+  const samlOptions = {
+    callbackUrl:
+      "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
+    entryPoint:
+      "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml",
+    // UPDATED with new Issuer/Entity ID from Thalles IDP
+    // issuer: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA",
+    issuer: "https://geospatial-ap-backend.onrender.com",
+    cert: `-----BEGIN CERTIFICATE-----
 MIICqzCCAZMCBgGWSJt8fjANBgkqhkiG9w0BAQsFADAZMRcwFQYDVQQDDA4yVVVP
 MTRQSjFHLVNUQTAeFw0yNTA0MTgxMTEyNTFaFw0zNTA0MTgxMTE0MzFaMBkxFzAV
 BgNVBAMMDjJVVU8xNFBKMUctU1RBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
@@ -44,18 +71,7 @@ qkcsmgghXk1Yq6ASW9SVDRApkCepm8z69AkF/myUVJAMNgzKmEAq6nTd7kI84Z0J
 d2rqf7qpmv9n3nrvQ5U9s7aKDz6qIs6DWK4JQcVbbZ4aB27/8J92GKUE0ifBUkPN
 9Vkkul52Q2fBcQls1o6QLUzUUnIaKKQMIBMBB3SQAkMfbwbXuKDHVWRLqbDtzRYK
 HZP3t2G8KLhk6LfUbTmO
------END CERTIFICATE-----`;
-
-  // Create SAML strategy with better debugging
-  const samlOptions = {
-    callbackUrl:
-      "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
-    entryPoint:
-      "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml",
-    // UPDATED with new Issuer/Entity ID from Thalles IDP
-    // issuer: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA",
-    issuer: "https://geospatial-ap-backend.onrender.com",
-    cert: idpCert, // IDP's public certificate
+-----END CERTIFICATE-----`, // IDP's public certificate
     privateKey: spPrivateKey, // Your SP's private key
     decryptionPvk: spPrivateKey, // For decrypting encrypted assertions
     signatureAlgorithm: "sha256",
