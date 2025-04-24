@@ -50,9 +50,11 @@ HZP3t2G8KLhk6LfUbTmO
   const samlOptions = {
     callbackUrl:
       "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
-    entryPoint:"https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml/",
+    entryPoint:
+      "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml",
     // UPDATED with new Issuer/Entity ID from Thalles IDP
-    issuer: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA",
+    // issuer: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA",
+    issuer: "https://geospatial-ap-backend.onrender.com",
     cert: idpCert, // IDP's public certificate
     privateKey: spPrivateKey, // Your SP's private key
     decryptionPvk: spPrivateKey, // For decrypting encrypted assertions
