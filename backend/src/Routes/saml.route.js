@@ -1,3 +1,5 @@
+//thales idp urls and generated private and public keys
+
 import express from "express";
 import passport from "passport";
 import { Strategy as SamlStrategy } from "passport-saml";
@@ -48,7 +50,7 @@ HZP3t2G8KLhk6LfUbTmO
   const samlOptions = {
     callbackUrl:
       "https://geospatial-ap-backend.onrender.com/api/auth/saml/callback",
-    entryPoint:"https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml",
+    entryPoint:"https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA/protocol/saml/",
     // UPDATED with new Issuer/Entity ID from Thalles IDP
     issuer: "https://idp.eu.safenetid.com/auth/realms/2UUO14PJ1G-STA",
     cert: idpCert, // IDP's public certificate
@@ -201,6 +203,12 @@ HZP3t2G8KLhk6LfUbTmO
 
 export default router;
 
+
+
+
+
+
+//One login idp credentials and urls
 
 // import express from "express";
 // import passport from "passport";
@@ -375,6 +383,24 @@ export default router;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//thales idp credentials without our private and public key
 
 
 // import express from "express";
