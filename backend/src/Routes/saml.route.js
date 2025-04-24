@@ -59,14 +59,14 @@ HZP3t2G8KLhk6LfUbTmO
     privateKey: spPrivateKey, // Your SP's private key
     decryptionPvk: spPrivateKey, // For decrypting encrypted assertions
     signatureAlgorithm: "sha256",
-    // digestAlgorithm: "sha1",
+    digestAlgorithm: "sha256",
     identifierFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
     validateInResponseTo: false,
     disableRequestedAuthnContext: true,
     acceptedClockSkewMs: 5000,
     forceAuthn: false,
     passive: false,
-    wantAssertionsSigned: false,
+    wantAssertionsSigned: true,
     wantAuthnResponseSigned: false,
     wantMessageSigned: true,
     // Additional security options
