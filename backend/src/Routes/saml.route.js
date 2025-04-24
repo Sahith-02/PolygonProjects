@@ -67,7 +67,7 @@ HZP3t2G8KLhk6LfUbTmO
     forceAuthn: false,
     passive: false,
     wantAssertionsSigned: true,
-    wantAuthnResponseSigned: true,
+    wantAuthnResponseSigned: false,
     wantMessageSigned: true,
     // Additional security options
     authnRequestBinding: "HTTP-Redirect",
