@@ -66,7 +66,7 @@ HZP3t2G8KLhk6LfUbTmO
     acceptedClockSkewMs: 5000,
     forceAuthn: false,
     passive: false,
-    wantAssertionsSigned: true,
+    wantAssertionsSigned: false,
     wantAuthnResponseSigned: false,
     wantMessageSigned: true,
     // Additional security options
