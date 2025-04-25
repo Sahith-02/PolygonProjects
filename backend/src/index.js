@@ -16,7 +16,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 // Define allowed origins
 const allowedOrigins = [
-  "https://geospatial-ap-frontend.onrender.com",
+  "https://indgeos.onrender.com",
   "http://localhost:5173",
   "https://polygongeospatial.onelogin.com",
   "https://app.onelogin.com",
