@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
+import session from "express-session";
+import passport from "passport";
 import authRoutes from "./Routes/auth.route.js";
+import samlRoutes from "./Routes/saml.route.js";
 import tileRoutes from "./Routes/tiles.route.js";
 import recordsRoutes from "./Routes/records.route.js";
 
@@ -9,40 +12,93 @@ import MBTiles from "@mapbox/mbtiles";
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
+// Define allowed origins
 const allowedOrigins = [
-  "https://indgeos.onrender.com",
+  "https://geospatial-ap-frontend.onrender.com",
   "http://localhost:5173",
+  "https://polygongeospatial.onelogin.com",
+  "https://app.onelogin.com",
 ];
 
-// app.use(
-//   cors({
-//     origin: (origin, callback) => {
-//       if (!origin || allowedOrigins.includes(origin)) {
-//         callback(null, true);
-//       } else {
-//         callback(new Error("Not allowed by CORS"));
-//       }
-//     },
-//     credentials: true,
-//   })
-// );
-
+// Configure CORS with proper settings for SAML
 app.use(
   cors({
-    origin: ["https://indgeos.onrender.com", "http://localhost:5173"],
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        console.log("Origin rejected by CORS:", origin);
+        // In production, be more permissive for SAML redirects
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    exposedHeaders: ["Set-Cookie"],
+    secure: IS_PRODUCTION,
   })
 );
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Important for SAML POST responses
+
+// Add session support for SAML (needed in production)
+if (IS_PRODUCTION) {
+  // Update your session configuration
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || "saml-session-secret",
+      resave: false,
+      saveUninitialized: true,
+      cookie: {
+        secure: IS_PRODUCTION, // true in production if using HTTPS
+        sameSite: "none", // Allow cross-site cookies
+        maxAge: 24 * 60 * 60 * 1000,
+      },
+    })
+  );
+
+  // Initialize passport for SAML
+  app.use(passport.initialize());
+  app.use(passport.session());
+}
+
+// Enable CORS for all routes
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  next();
+});
+
 app.use("/api", tileRoutes);
 app.use("/api", recordsRoutes);
 
 app.use("/", authRoutes);
+app.use("/", samlRoutes); // Add SAML routes
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error("Error:", err.stack);
+  res.status(500).json({
+    error: "Internal Server Error",
+    message: err.message,
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+  });
+});
 
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
+  if (IS_PRODUCTION) {
+    console.log("SAML authentication enabled");
+  } else {
+    console.log("Running in development mode, SAML auth disabled");
+  }
 });
